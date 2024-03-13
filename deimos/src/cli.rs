@@ -1,7 +1,10 @@
 use std::env::Args;
 use std::error::Error;
 use std::fmt::Display;
+use std::fs;
 use std::path::Path;
+
+const DEFAULT_OUTNAME: &'static str = "out.asm";
 
 #[derive(Debug)]
 pub enum CliArgError {
@@ -61,5 +64,14 @@ impl CliArgs {
         }
 
         Ok(CliArgs { source, out })
+    }
+
+    pub fn invoke(self) -> Result<(), Box<dyn Error>> {
+        let source = fs::read_to_string(self.source)?;
+        let ast = deimos_parser::parse_file(source)?;
+        deimos_parser::validate(&ast)?;
+        let codegen = deimos_codegen::codegen(&ast);
+        codegen.write_to_file(self.out.as_deref().unwrap_or(DEFAULT_OUTNAME))?;
+        Ok(())
     }
 }

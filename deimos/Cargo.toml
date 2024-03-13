@@ -4,3 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+deimos_parser = { version = "0.1.0", path = "../deimos_parser" }
+deimos_codegen = { version = "0.1.0", path = "../deimos_codegen" }

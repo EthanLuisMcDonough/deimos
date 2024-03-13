@@ -11,5 +11,10 @@ fn main() -> ExitCode {
         }
     };
 
+    if let Err(e) = options.invoke() {
+        eprintln!("{}", e);
+        return ExitCode::FAILURE;
+    }
+
     ExitCode::SUCCESS
 }
