@@ -11,3 +11,9 @@ impl Display for Location {
         write!(f, "{}:{}", self.row, self.col,)
     }
 }
+
+#[derive(Debug)]
+pub struct Located<T> {
+    pub data: T,
+    pub loc: Location,
+}

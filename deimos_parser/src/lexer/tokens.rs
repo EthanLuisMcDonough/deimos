@@ -1,5 +1,4 @@
 use crate::keyword_map;
-use deimos_ast::Location;
 
 keyword_map!(Keyword {
     Fn -> "sub",
@@ -45,7 +44,7 @@ pub enum Grouper {
 }
 
 #[derive(Debug)]
-pub enum Token {
+pub enum Lexeme {
     Keyword(Keyword),
     Register(Register),
     Primitive(PrimitiveType),
@@ -78,12 +77,6 @@ pub enum Token {
     LogicNot,
     LogicNotEq,
 
-    GrouperBegin(Grouper),
-    GrouperEnd(Grouper),
-}
-
-#[derive(Debug)]
-pub struct Lexeme {
-    pub token: Token,
-    pub loc: Location,
+    GroupBegin(Grouper),
+    GroupEnd(Grouper),
 }

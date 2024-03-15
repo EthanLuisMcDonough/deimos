@@ -1,4 +1,4 @@
-use deimos_ast::StringBank;
+use deimos_ast::{StringBank, Located};
 
 mod chiter;
 mod error;
@@ -11,7 +11,7 @@ pub use tokens::*;
 
 #[derive(Default, Debug)]
 pub struct Tokens {
-    pub lexemes: Vec<Lexeme>,
+    pub lexemes: Vec<Located<Lexeme>>,
     pub bank: StringBank,
 }
 
@@ -21,8 +21,8 @@ pub fn lex(s: &str) -> LexResult<Tokens> {
     let mut lexemes = Vec::new();
 
     while let Some(c) = chars.next() {
-        let token_loc = chars.get_loc();
-        let token = match c {
+        let lexeme_loc = chars.get_loc();
+        let lexeme = match c {
             // Parse identifier
             'a'..='z' | 'A'..='Z' | '_' => {
                 let mut ident = String::from(c);
@@ -31,11 +31,11 @@ pub fn lex(s: &str) -> LexResult<Tokens> {
                 }
 
                 if let Some(k) = Keyword::from_str(&ident) {
-                    Token::Keyword(k)
+                    Lexeme::Keyword(k)
                 } else if let Some(p) = PrimitiveType::from_str(&ident) {
-                    Token::Primitive(p)
+                    Lexeme::Primitive(p)
                 } else {
-                    Token::Identifier(bank.get_ident(ident))
+                    Lexeme::Identifier(bank.get_ident(ident))
                 }
             }
 
@@ -48,8 +48,8 @@ pub fn lex(s: &str) -> LexResult<Tokens> {
                         num_buf.push(c);
                     }
                     i32::from_str_radix(&num_buf, 16)
-                        .map(Token::Integer)
-                        .map_err(|_| LexErrorKind::InvalidNumber.with_loc(token_loc))?
+                        .map(Lexeme::Integer)
+                        .map_err(|_| LexErrorKind::InvalidNumber.with_loc(lexeme_loc))?
                 } else {
                     // Parse decimal number
                     // We know its a float if we find ., e, or f
@@ -96,24 +96,24 @@ pub fn lex(s: &str) -> LexResult<Tokens> {
                     if is_float {
                         num_buf
                             .parse::<f32>()
-                            .map(Token::Float)
-                            .map_err(|_| LexErrorKind::InvalidNumber.with_loc(token_loc))?
+                            .map(Lexeme::Float)
+                            .map_err(|_| LexErrorKind::InvalidNumber.with_loc(lexeme_loc))?
                     } else {
                         i32::from_str_radix(&num_buf, 10)
-                            .map(Token::Integer)
-                            .map_err(|_| LexErrorKind::InvalidNumber.with_loc(token_loc))?
+                            .map(Lexeme::Integer)
+                            .map_err(|_| LexErrorKind::InvalidNumber.with_loc(lexeme_loc))?
                     }
                 }
             }
 
             // Parse operators
-            '+' => Token::Plus,
-            '-' => Token::Minus,
-            '*' => Token::Multiply,
-            '/' => Token::Divide,
-            '%' => Token::Modulo,
-            '&' => Token::Reference,
-            '@' => Token::Deref,
+            '+' => Lexeme::Plus,
+            '-' => Lexeme::Minus,
+            '*' => Lexeme::Multiply,
+            '/' => Lexeme::Divide,
+            '%' => Lexeme::Modulo,
+            '&' => Lexeme::Reference,
+            '@' => Lexeme::Deref,
 
             // Parse comments
             '#' => {
@@ -125,19 +125,21 @@ pub fn lex(s: &str) -> LexResult<Tokens> {
             '>' | '=' | '<' | '!' => {
                 let next_eq = chars.next_if_eq('=');
                 match c {
-                    '>' if next_eq => Token::GreaterThanEq,
-                    '=' if next_eq => Token::LogicEq,
-                    '<' if next_eq => Token::LessThanEq,
-                    '!' if next_eq => Token::LogicNotEq,
-                    '>' => Token::GreaterThan,
-                    '=' => Token::Equals,
-                    '<' => Token::LessThan,
-                    '!' => Token::LogicNot,
+                    '>' if next_eq => Lexeme::GreaterThanEq,
+                    '=' if next_eq => Lexeme::LogicEq,
+                    '<' if next_eq => Lexeme::LessThanEq,
+                    '!' if next_eq => Lexeme::LogicNotEq,
+                    '>' => Lexeme::GreaterThan,
+                    '=' => Lexeme::Equals,
+                    '<' => Lexeme::LessThan,
+                    '!' => Lexeme::LogicNot,
                     _ => unreachable!(),
                 }
             }
 
-            /*'$' => {}*/
+            // Parse register name
+            '$' => unimplemented!(),
+
             // Parse string
             '"' => {
                 let mut s = String::new();
@@ -151,31 +153,31 @@ pub fn lex(s: &str) -> LexResult<Tokens> {
                         c => s.push(c),
                     }
                 }
-                Token::String(bank.get_string(s))
+                Lexeme::String(bank.get_string(s))
             }
 
             // Parse groupers [], (), and {}
-            '(' => Token::GrouperBegin(Grouper::Parenthesis),
-            ')' => Token::GrouperEnd(Grouper::Parenthesis),
-            '{' => Token::GrouperBegin(Grouper::Brace),
-            '}' => Token::GrouperEnd(Grouper::Brace),
-            '[' => Token::GrouperBegin(Grouper::Bracket),
-            ']' => Token::GrouperEnd(Grouper::Bracket),
+            '(' => Lexeme::GroupBegin(Grouper::Parenthesis),
+            ')' => Lexeme::GroupEnd(Grouper::Parenthesis),
+            '{' => Lexeme::GroupBegin(Grouper::Brace),
+            '}' => Lexeme::GroupEnd(Grouper::Brace),
+            '[' => Lexeme::GroupBegin(Grouper::Bracket),
+            ']' => Lexeme::GroupEnd(Grouper::Bracket),
 
             // Parse delimiters
-            ':' => Token::Colon,
-            ',' => Token::Comma,
-            ';' => Token::Semicolon,
-            '.' => Token::Peroid,
+            ':' => Lexeme::Colon,
+            ',' => Lexeme::Comma,
+            ';' => Lexeme::Semicolon,
+            '.' => Lexeme::Peroid,
 
             // Skip whitespace
             ' ' | '\n' | '\t' | '\r' => continue,
-            _ => return Err(LexErrorKind::UnexpectedChar(c).with_loc(token_loc)),
+            _ => return Err(LexErrorKind::UnexpectedChar(c).with_loc(lexeme_loc)),
         };
 
-        lexemes.push(Lexeme {
-            token,
-            loc: token_loc,
+        lexemes.push(Located {
+            data: lexeme,
+            loc: lexeme_loc,
         });
     }
     Ok(Tokens {
