@@ -9,6 +9,13 @@ pub fn is_powsign(c: char) -> bool {
     c == '-' || c == '+'
 }
 
+pub fn is_regchar(c: char) -> bool {
+    match c {
+        '0'..='3' | 'a' | 'v' | 'f' => true,
+        _ => false,
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct TempStringBank {
     string_bank: HashMap<String, usize>,

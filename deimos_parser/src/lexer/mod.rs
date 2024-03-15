@@ -1,4 +1,4 @@
-use deimos_ast::{StringBank, Located};
+use deimos_ast::{Located, StringBank};
 
 mod chiter;
 mod error;
@@ -32,7 +32,7 @@ pub fn lex(s: &str) -> LexResult<Tokens> {
 
                 if let Some(k) = Keyword::from_str(&ident) {
                     Lexeme::Keyword(k)
-                } else if let Some(p) = PrimitiveType::from_str(&ident) {
+                } else if let Some(p) = test_primitive(&ident) {
                     Lexeme::Primitive(p)
                 } else {
                     Lexeme::Identifier(bank.get_ident(ident))
@@ -138,7 +138,15 @@ pub fn lex(s: &str) -> LexResult<Tokens> {
             }
 
             // Parse register name
-            '$' => unimplemented!(),
+            '$' => {
+                let mut reg = String::new();
+                while let Some(c) = chars.next_if(util::is_regchar) {
+                    reg.push(c);
+                }
+                test_register(&reg)
+                    .map(Lexeme::Register)
+                    .ok_or(LexErrorKind::InvalidRegister.with_loc(lexeme_loc))?
+            }
 
             // Parse string
             '"' => {

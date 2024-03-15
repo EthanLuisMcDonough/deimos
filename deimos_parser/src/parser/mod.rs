@@ -5,5 +5,5 @@ mod error;
 pub use error::*;
 
 pub fn parse(_tokens: Tokens) -> ParseResult<Program> {
-    Ok(Program)
+    unimplemented!()
 }

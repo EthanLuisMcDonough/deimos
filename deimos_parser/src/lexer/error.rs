@@ -6,6 +6,7 @@ use std::fmt::Display;
 pub enum LexErrorKind {
     UnexpectedEOF,
     InvalidNumber,
+    InvalidRegister,
     UnexpectedChar(char),
 }
 impl LexErrorKind {
@@ -19,6 +20,7 @@ impl Display for LexErrorKind {
         match self {
             Self::UnexpectedEOF => write!(f, "Unexpected EOF"),
             Self::InvalidNumber => write!(f, "Invalid number"),
+            Self::InvalidRegister => write!(f, "Invalid register"),
             Self::UnexpectedChar(c) => write!(f, "Unexpected char '{}'", c),
         }
     }

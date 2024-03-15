@@ -1,4 +1,27 @@
 use crate::keyword_map;
+use deimos_ast::{PrimitiveType, Register};
+
+pub fn test_primitive(s: &str) -> Option<PrimitiveType> {
+    Some(match s {
+        "i32" => PrimitiveType::I32,
+        "f32" => PrimitiveType::F32,
+        "u8" => PrimitiveType::U8,
+        _ => return None,
+    })
+}
+
+pub fn test_register(s: &str) -> Option<Register> {
+    Some(match s {
+        "a0" => Register::A0,
+        "a1" => Register::A1,
+        "a2" => Register::A2,
+        "a3" => Register::A3,
+        "v0" => Register::V0,
+        "f0" => Register::F0,
+        "f12" => Register::F12,
+        _ => return None,
+    })
+}
 
 keyword_map!(Keyword {
     Fn -> "sub",
@@ -18,22 +41,6 @@ keyword_map!(Keyword {
     Syscall -> "syscall",
     In -> "in",
     Out -> "out",
-});
-
-keyword_map!(PrimitiveType {
-    I32 -> "i32",
-    F32 -> "f32",
-    U8 -> "u8",
-});
-
-keyword_map!(Register {
-    A0 -> "$a0",
-    A1 -> "$a1",
-    A2 -> "$a2",
-    A3 -> "$a3",
-    V0 -> "$v0",
-    F0 -> "$f0",
-    F12 -> "$f12",
 });
 
 #[derive(Debug)]
