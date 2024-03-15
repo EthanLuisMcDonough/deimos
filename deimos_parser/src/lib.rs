@@ -2,13 +2,11 @@ use deimos_ast::*;
 
 mod error;
 pub mod lexer;
+mod parser;
 
 pub use error::*;
 pub use lexer::lex;
-
-pub fn parse(_tokens: lexer::Tokens) -> ParseResult<Program> {
-    Ok(Program)
-}
+pub use parser::parse;
 
 pub fn validate(_p: &Program) -> ValidationResult<()> {
     Ok(())
