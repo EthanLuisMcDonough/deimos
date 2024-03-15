@@ -30,9 +30,15 @@ impl Display for CliArgError {
 impl Error for CliArgError {}
 pub type CliResult<T> = Result<T, CliArgError>;
 
+pub enum DebugStage {
+    Lex,
+    Parse,
+}
+
 pub struct CliArgs {
     source: String,
     out: Option<String>,
+    debug_stage: Option<DebugStage>,
 }
 
 impl CliArgs {
@@ -40,6 +46,8 @@ impl CliArgs {
         let mut source = String::new();
         let mut out = None;
         let mut args = args.skip(1);
+        let mut debug_stage = None;
+
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "-o" => {
@@ -48,6 +56,12 @@ impl CliArgs {
                     } else {
                         return Err(CliArgError::MissingOutArg);
                     }
+                }
+                "-debug-stage=lex" => {
+                    debug_stage = Some(DebugStage::Lex);
+                }
+                "-debug-stage=parse" => {
+                    debug_stage = Some(DebugStage::Parse);
                 }
                 _ => {
                     if Path::new(arg.as_str()).exists() {
@@ -63,15 +77,33 @@ impl CliArgs {
             return Err(CliArgError::MissingSourceFile);
         }
 
-        Ok(CliArgs { source, out })
+        Ok(CliArgs {
+            source,
+            out,
+            debug_stage,
+        })
     }
 
     pub fn invoke(self) -> Result<(), Box<dyn Error>> {
         let source = fs::read_to_string(self.source)?;
-        let ast = deimos_parser::parse_file(source)?;
+
+        let tokens = deimos_parser::lex(&source)?;
+        if let Some(DebugStage::Lex) = self.debug_stage {
+            println!("{:?}", tokens);
+            return Ok(());
+        }
+
+        let ast = deimos_parser::parse(tokens)?;
+        if let Some(DebugStage::Parse) = self.debug_stage {
+            println!("{:?}", ast);
+            return Ok(());
+        }
+
         deimos_parser::validate(&ast)?;
+
         let codegen = deimos_codegen::codegen(&ast);
         codegen.write_to_file(self.out.as_deref().unwrap_or(DEFAULT_OUTNAME))?;
+
         Ok(())
     }
 }

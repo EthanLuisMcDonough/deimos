@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Location {
     pub row: usize,
     pub col: usize,

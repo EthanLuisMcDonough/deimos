@@ -1,9 +1,12 @@
 use deimos_ast::*;
 
 mod error;
-pub use error::*;
+pub mod lexer;
 
-pub fn parse_file(_source: String) -> ParseResult<Program> {
+pub use error::*;
+pub use lexer::lex;
+
+pub fn parse(_tokens: lexer::Tokens) -> ParseResult<Program> {
     Ok(Program)
 }
 
