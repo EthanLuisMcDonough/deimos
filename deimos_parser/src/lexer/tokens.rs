@@ -41,6 +41,8 @@ keyword_map!(Keyword {
     Syscall -> "syscall",
     In -> "in",
     Out -> "out",
+    Static -> "static",
+    Mem -> "mem",
 });
 
 #[derive(Debug)]
