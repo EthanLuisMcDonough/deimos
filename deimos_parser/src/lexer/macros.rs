@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! keyword_map {
     ($name:ident { $( $field:ident -> $s:expr ),* $(,)* }) => {
-        #[derive(Clone, Debug, PartialEq)]
+        #[derive(Clone, Debug, PartialEq, Copy)]
         pub enum $name {
             $( $field ),*
         }

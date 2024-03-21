@@ -17,3 +17,9 @@ pub struct Located<T> {
     pub data: T,
     pub loc: Location,
 }
+
+impl<T> Located<T> {
+    pub fn new(data: T, loc: Location) -> Self {
+        Self { data, loc }
+    }
+}

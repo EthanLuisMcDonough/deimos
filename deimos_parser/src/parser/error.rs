@@ -1,31 +1,19 @@
-use deimos_ast::Location;
+use crate::lexer::Lexeme;
+use deimos_ast::Located;
 use std::error::Error;
 use std::fmt::Display;
 
 #[derive(Debug)]
-pub enum ParseErrorKind {
+pub enum ParseError {
     UnexpectedEOF,
-}
-impl Display for ParseErrorKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::UnexpectedEOF => "Unexpected end of file",
-            }
-        )
-    }
-}
-
-#[derive(Debug)]
-pub struct ParseError {
-    pub kind: ParseErrorKind,
-    pub loc: Location,
+    UnexpectedToken(Located<Lexeme>),
 }
 impl Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Parse error: {} {}", self.kind, self.loc)
+        match self {
+            Self::UnexpectedEOF => write!(f, "Unexpected end of file"),
+            Self::UnexpectedToken(t) => write!(f, "Unexpected token {:?} at {}", t.data, t.loc),
+        }
     }
 }
 impl Error for ParseError {}

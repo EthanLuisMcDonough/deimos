@@ -45,14 +45,14 @@ keyword_map!(Keyword {
     Mem -> "mem",
 });
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Grouper {
     Parenthesis,
     Bracket,
     Brace,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Lexeme {
     Keyword(Keyword),
     Register(Register),

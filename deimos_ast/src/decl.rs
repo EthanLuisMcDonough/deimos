@@ -13,13 +13,9 @@ pub struct TypedIdent {
 }
 
 #[derive(Debug)]
-pub struct Record {
-    pub fields: Vec<TypedIdent>,
-}
-
-#[derive(Debug)]
 pub struct VarDecl {
     pub variable: DeclType,
+    pub name: Identifier,
     pub init: Option<InitValue>,
 }
 
@@ -29,16 +25,23 @@ pub struct FunctionBlock {
     pub block: Block,
 }
 
+pub type FunctionArgs = Vec<TypedIdent>;
+
 #[derive(Debug)]
 pub struct Function {
-    pub args: Vec<TypedIdent>,
+    pub args: FunctionArgs,
     pub block: FunctionBlock,
 }
 
 #[derive(Debug)]
 pub enum Definition {
-    Record(Record),
     Function(Function),
-    Static(InitValue),
-    MemVar(PrimitiveValue),
+    Static {
+        variable: DeclType,
+        init: InitValue,
+    },
+    MemVar {
+        variable: DeclType,
+        addr: Located<usize>,
+    },
 }

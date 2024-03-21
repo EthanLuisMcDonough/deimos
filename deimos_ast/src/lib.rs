@@ -32,9 +32,11 @@ pub struct ProgramBody {
     pub block: FunctionBlock,
 }
 
+pub type Definitions = HashMap<usize, Definition>;
+
 #[derive(Debug)]
 pub struct Program {
     pub bank: StringBank,
-    pub definitions: HashMap<usize, Definition>,
+    pub definitions: Definitions,
     pub body: ProgramBody,
 }

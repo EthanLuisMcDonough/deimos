@@ -1,8 +1,8 @@
-use super::Located;
+use super::{Located, ParamType};
 
 pub type Identifier = Located<usize>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum UnaryOp {
     Negation,
     LogicNot,
@@ -10,7 +10,7 @@ pub enum UnaryOp {
     Reference,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum BinaryOp {
     Add,
     Sub,
@@ -25,6 +25,7 @@ pub enum BinaryOp {
     Equal,
     And,
     Or,
+    IndexAccess,
 }
 
 #[derive(Debug)]
@@ -45,10 +46,10 @@ pub enum Expression {
         operand: Box<Expression>,
         op: Located<UnaryOp>,
     },
+    Cast {
+        value: Box<Expression>,
+        cast_type: ParamType,
+    },
     Identifier(Identifier),
     Primitive(PrimitiveValue),
-    IndexAccess {
-        array: Box<Expression>,
-        index: Box<Expression>,
-    },
 }

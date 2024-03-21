@@ -23,7 +23,6 @@ pub struct LogicChain {
     pub else_block: Option<Block>,
 }
 
-
 #[derive(Debug)]
 pub enum ControlBreak {
     Break,
