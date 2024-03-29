@@ -1,5 +1,4 @@
 use crate::{expect_semicolon, next_expect, next_guard};
-use std::iter::Peekable;
 
 use self::tokiter::TokenPeeker;
 
@@ -28,9 +27,7 @@ pub fn parse(Tokens { lexemes, bank }: Tokens) -> ParseResult<Program> {
                 let args = parse_fn_params(&mut tokens)?;
             }
             Lexeme::Keyword(Keyword::Record) => {
-                let record_name = next_guard!({ tokens.next() } {
-                    Lexeme::Identifier(ident) => ident,
-                });
+                return Err(ParseError::ReservedWord(Keyword::Record))
             }
             Lexeme::Keyword(Keyword::Mem) => unimplemented!(),
             Lexeme::Keyword(Keyword::Static) => unimplemented!(),
@@ -41,28 +38,6 @@ pub fn parse(Tokens { lexemes, bank }: Tokens) -> ParseResult<Program> {
     unimplemented!()
 }
 
-fn parse_param_type(tokens: &mut TokenPeeker) -> ParseResult<Located<ParamType>> {
-    let mut indirection = 0usize;
-    let mut loc = None;
-
-    while let Some(t) = tokens.next_if_eq(&Lexeme::Reference) {
-        indirection += 1;
-        loc.get_or_insert(t.loc);
-    }
-    let param_type = next_guard!({ tokens.next() } (loc) {
-        Lexeme::Identifier(i) => Located::new(BaseType::Custom(i), loc),
-        Lexeme::Primitive(p) => Located::new(BaseType::Primitive(p), loc),
-    });
-    let loc = loc.unwrap_or(param_type.loc);
-    Ok(Located::new(
-        ParamType {
-            param_type,
-            indirection,
-        },
-        loc,
-    ))
-}
-
 fn parse_fn_params(tokens: &mut TokenPeeker) -> ParseResult<FunctionArgs> {
     let mut args = Vec::new();
     loop {
@@ -70,7 +45,7 @@ fn parse_fn_params(tokens: &mut TokenPeeker) -> ParseResult<FunctionArgs> {
             Lexeme::GroupEnd(Grouper::Parenthesis) => break,
             Lexeme::Identifier(ident) => {
                 next_expect!({ tokens.next() } { Lexeme::Colon });
-                let field_type = parse_param_type(tokens)?;
+                let field_type = expr::parse_param_type(tokens)?;
                 args.push(TypedIdent {
                     name: Located::new(ident, loc),
                     field_type
@@ -92,6 +67,9 @@ fn parse_block_until_end(tokens: &mut TokenPeeker) -> ParseResult<Block> {
         let stmt = match token.data {
             Lexeme::GroupEnd(Grouper::Brace) => break,
             Lexeme::Keyword(Keyword::Call) => {
+                let callee = next_guard!({ tokens.next() } {
+                    Lexeme::Identifier(ident) => ident,
+                });
                 unimplemented!()
             }
             Lexeme::Keyword(Keyword::Syscall) => unimplemented!(),

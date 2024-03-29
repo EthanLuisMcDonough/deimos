@@ -7,15 +7,9 @@ pub enum PrimitiveType {
     U8,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum BaseType {
-    Primitive(PrimitiveType),
-    Custom(usize),
-}
-
 #[derive(Debug)]
 pub struct ParamType {
-    pub param_type: Located<BaseType>,
+    pub param_type: Located<PrimitiveType>,
     pub indirection: usize,
 }
 
@@ -23,7 +17,7 @@ pub struct ParamType {
 pub enum DeclType {
     Param(ParamType),
     Array {
-        array_type: Located<BaseType>,
+        array_type: Located<PrimitiveType>,
         size: usize,
     },
 }
