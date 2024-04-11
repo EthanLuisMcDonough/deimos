@@ -1,8 +1,6 @@
 use deimos_ast::{BinaryOp, UnaryOp};
 
-use crate::lexer::Lexeme;
-
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Operator {
     Binary(BinaryOp),
     Unary(UnaryOp),
@@ -21,7 +19,7 @@ impl From<UnaryOp> for Operator {
     }
 }
 
-#[derive(PartialEq, PartialOrd, Clone, Copy)]
+#[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
 pub enum Precedence {
     Access,
     Unary,

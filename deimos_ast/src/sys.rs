@@ -1,7 +1,7 @@
-use super::Identifier;
+use super::{Identifier, Located};
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum Register {
     A0,
     A1,
@@ -33,9 +33,22 @@ impl Register {
     }
 }
 
+pub type RegisterMap = HashMap<Register, Identifier>;
+
+#[derive(Debug, Default)]
+pub struct RegVars {
+    pub in_values: RegisterMap,
+    pub out_values: RegisterMap,
+}
+
 #[derive(Debug)]
 pub struct Syscall {
-    pub syscall_id: usize,
-    pub in_values: HashMap<Register, Identifier>,
-    pub out_values: HashMap<Register, Identifier>,
+    pub syscall_id: Located<usize>,
+    pub map: RegVars,
+}
+
+#[derive(Debug)]
+pub struct AsmBlock {
+    pub asm_strings: Vec<Located<usize>>,
+    pub map: RegVars,
 }

@@ -23,3 +23,14 @@ impl<T> Located<T> {
         Self { data, loc }
     }
 }
+
+impl<T: Clone> Clone for Located<T> {
+    fn clone(&self) -> Self {
+        Self {
+            data: self.data.clone(),
+            loc: self.loc,
+        }
+    }
+}
+
+impl<T: Copy> Copy for Located<T> {}

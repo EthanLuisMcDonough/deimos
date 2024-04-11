@@ -56,7 +56,7 @@ impl<'a> ChIter<'a> {
 
     pub fn next_if_eq(&mut self, ch: char) -> bool {
         match self.peek() {
-            Some(c) if c == ch => {
+            Some(ref c) if ch.eq_ignore_ascii_case(c) => {
                 self.next();
                 true
             }

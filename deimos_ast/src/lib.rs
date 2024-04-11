@@ -20,23 +20,11 @@ pub struct StringBank {
     pub strings: Vec<String>,
 }
 
-#[derive(Debug)]
-pub struct ProgramArgs {
-    pub argc: Identifier,
-    pub argv: Identifier,
-}
-
-#[derive(Debug)]
-pub struct ProgramBody {
-    pub args: Option<ProgramArgs>,
-    pub block: FunctionBlock,
-}
-
 pub type Definitions = HashMap<usize, Definition>;
 
 #[derive(Debug)]
 pub struct Program {
     pub bank: StringBank,
     pub definitions: Definitions,
-    pub body: ProgramBody,
+    pub body: FunctionBlock,
 }

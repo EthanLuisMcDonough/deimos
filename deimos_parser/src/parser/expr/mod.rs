@@ -1,6 +1,7 @@
 use super::{Grouper, Keyword, Lexeme, ParseResult};
 use deimos_ast::*;
 
+use super::iter::TokenIter;
 use crate::{
     next_guard,
     parser::{expr::operators::Operator, ParseError},
@@ -9,13 +10,11 @@ use crate::{
 mod operators;
 mod shunt;
 
-pub fn parse_param_type<T: Iterator<Item = Located<Lexeme>>>(
-    tokens: &mut T,
-) -> ParseResult<Located<ParamType>> {
+pub fn parse_param_type(tokens: &mut TokenIter) -> ParseResult<Located<ParamType>> {
     let mut indirection = 0usize;
     let mut loc = None;
     loop {
-        next_guard!({ tokens.next() } (l) {
+        next_guard!(tokens(l) {
             Lexeme::Reference => {
                 indirection += 1;
                 loc.get_or_insert(l);
@@ -34,31 +33,31 @@ pub fn parse_param_type<T: Iterator<Item = Located<Lexeme>>>(
     }
 }
 
-pub fn parse_expression(
-    mut tokens: impl Iterator<Item = Located<Lexeme>>,
-) -> ParseResult<Expression> {
+pub fn parse_expression(mut tokens: TokenIter) -> ParseResult<Expression> {
     let mut stack = shunt::ShuntingStack::default();
 
     while let Some(token) = tokens.next() {
         match token.data {
-            Lexeme::Integer(i) => {
+            Lexeme::Integer(i) if stack.yield_unary() => {
                 stack.push_expr(Expression::Primitive(PrimitiveValue::Int(Located::new(
                     i, token.loc,
                 ))));
             }
-            Lexeme::Float(f) => {
+            Lexeme::Float(f) if stack.yield_unary() => {
                 stack.push_expr(Expression::Primitive(PrimitiveValue::Float(Located::new(
                     f, token.loc,
                 ))));
             }
-            Lexeme::String(s) => {
+            Lexeme::String(s) if stack.yield_unary() => {
                 stack.push_expr(Expression::Primitive(PrimitiveValue::String(Located::new(
                     s, token.loc,
                 ))));
             }
-            Lexeme::Identifier(i) => {
+            Lexeme::Identifier(i) if stack.yield_unary() => {
                 stack.push_expr(Expression::Identifier(Located::new(i, token.loc)));
             }
+            Lexeme::Deref => stack.push_op(UnaryOp::Deref, token.loc)?,
+            Lexeme::Reference => stack.push_op(UnaryOp::Reference, token.loc)?,
             Lexeme::Plus => stack.push_op(BinaryOp::Add, token.loc)?,
             Lexeme::Minus if stack.yield_unary() => stack.push_op(UnaryOp::Negation, token.loc)?,
             Lexeme::Minus => stack.push_op(BinaryOp::Sub, token.loc)?,
@@ -78,14 +77,14 @@ pub fn parse_expression(
                 stack.push_op(Operator::Cast, token.loc)?;
                 stack.push_cast_type(cast_type.data);
             }
-            Lexeme::GroupBegin(Grouper::Brace) => {
+            Lexeme::GroupBegin(Grouper::Bracket) => {
                 stack.push_op(BinaryOp::IndexAccess, token.loc)?;
-                stack.push_open(Grouper::Brace, token.loc);
+                stack.push_open(Grouper::Bracket, token.loc);
             }
             Lexeme::GroupBegin(Grouper::Parenthesis) => {
                 stack.push_open(Grouper::Parenthesis, token.loc)
             }
-            Lexeme::GroupEnd(g @ Grouper::Parenthesis | g @ Grouper::Brace) => {
+            Lexeme::GroupEnd(g @ Grouper::Parenthesis | g @ Grouper::Bracket) => {
                 stack.push_close(g, token.loc)?;
             }
             _ => {
@@ -94,4 +93,32 @@ pub fn parse_expression(
         }
     }
     stack.get_val()
+}
+
+pub fn parse_rvalue(mut tokens: TokenIter) -> ParseResult<RValue> {
+    let start_loc = tokens.peek().map(|t| t.loc).ok_or(tokens.eof_err())?;
+    let expr = parse_expression(tokens)?;
+    match expr {
+        Expression::Unary {
+            operand,
+            op: Located {
+                data: UnaryOp::Deref,
+                ..
+            },
+        } => Ok(RValue::Deref(*operand)),
+        Expression::Identifier(ident) => Ok(RValue::Identifier(ident)),
+        Expression::Binary {
+            left,
+            right,
+            op:
+                Located {
+                    data: BinaryOp::IndexAccess,
+                    ..
+                },
+        } => Ok(RValue::Index {
+            array: *left,
+            value: *right,
+        }),
+        _ => Err(ParseError::ExpectedRValue(start_loc)),
+    }
 }

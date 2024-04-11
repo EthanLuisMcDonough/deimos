@@ -1,10 +1,10 @@
-use crate::{Expression, Identifier, Located, Syscall};
+use crate::{AsmBlock, Expression, Identifier, Located, Syscall};
 
 #[derive(Debug)]
 pub enum RValue {
     Identifier(Identifier),
     Index {
-        array: Identifier,
+        array: Expression,
         value: Expression,
     },
     Deref(Expression),
@@ -31,23 +31,32 @@ pub enum ControlBreak {
 }
 
 #[derive(Debug)]
+pub struct Assignment {
+    pub rvalue: RValue,
+    pub lvalue: Expression,
+}
+
+#[derive(Debug)]
+pub struct Print {
+    pub args: Vec<Expression>,
+}
+
+#[derive(Debug)]
+pub struct Invocation {
+    pub function: Identifier,
+    pub args: Vec<Expression>,
+}
+
+#[derive(Debug)]
 pub enum Statement {
-    LogicChain {
-        if_block: ConditionBody,
-        elifs: Vec<ConditionBody>,
-        else_block: Option<Block>,
-    },
+    LogicChain(LogicChain),
     While(ConditionBody),
-    Call {
-        function: Identifier,
-        args: Vec<Expression>,
-    },
-    Assignment {
-        rvalue: RValue,
-        lvalue: Expression,
-    },
+    Call(Invocation),
+    Assignment(Assignment),
     Syscall(Syscall),
     ControlBreak(ControlBreak),
+    Print(Print),
+    Asm(AsmBlock),
 }
 
 pub type Block = Vec<Located<Statement>>;

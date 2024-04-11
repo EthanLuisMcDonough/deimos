@@ -32,6 +32,7 @@ pub enum BinaryOp {
 pub enum PrimitiveValue {
     Float(Located<f32>),
     Int(Located<i32>),
+    Unsigned(Located<u32>),
     String(Located<usize>),
 }
 

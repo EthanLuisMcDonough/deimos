@@ -47,9 +47,15 @@ pub fn lex(s: &str) -> LexResult<Tokens> {
                     while let Some(c) = chars.next_if(|c| c.is_ascii_hexdigit()) {
                         num_buf.push(c);
                     }
-                    i32::from_str_radix(&num_buf, 16)
-                        .map(Lexeme::Integer)
-                        .map_err(|_| LexErrorKind::InvalidNumber.with_loc(lexeme_loc))?
+                    if chars.next_if_eq('u') {
+                        u32::from_str_radix(&num_buf, 16)
+                            .map(Lexeme::Unsigned)
+                            .map_err(|_| LexErrorKind::InvalidNumber.with_loc(lexeme_loc))?
+                    } else {
+                        i32::from_str_radix(&num_buf, 16)
+                            .map(Lexeme::Integer)
+                            .map_err(|_| LexErrorKind::InvalidNumber.with_loc(lexeme_loc))?
+                    }
                 } else {
                     // Parse decimal number
                     // We know its a float if we find ., e, or f
@@ -97,6 +103,10 @@ pub fn lex(s: &str) -> LexResult<Tokens> {
                         num_buf
                             .parse::<f32>()
                             .map(Lexeme::Float)
+                            .map_err(|_| LexErrorKind::InvalidNumber.with_loc(lexeme_loc))?
+                    } else if chars.next_if_eq('u') {
+                        u32::from_str_radix(&num_buf, 16)
+                            .map(Lexeme::Unsigned)
                             .map_err(|_| LexErrorKind::InvalidNumber.with_loc(lexeme_loc))?
                     } else {
                         i32::from_str_radix(&num_buf, 10)

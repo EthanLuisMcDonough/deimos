@@ -4,6 +4,7 @@ use deimos_ast::{PrimitiveType, Register};
 pub fn test_primitive(s: &str) -> Option<PrimitiveType> {
     Some(match s {
         "i32" => PrimitiveType::I32,
+        "u32" => PrimitiveType::U32,
         "f32" => PrimitiveType::F32,
         "u8" => PrimitiveType::U8,
         _ => return None,
@@ -24,6 +25,7 @@ pub fn test_register(s: &str) -> Option<Register> {
 }
 
 keyword_map!(Keyword {
+    Program -> "program",
     Fn -> "sub",
     Cast -> "as",
     Call -> "call",
@@ -43,6 +45,8 @@ keyword_map!(Keyword {
     Out -> "out",
     Static -> "static",
     Mem -> "mem",
+    While -> "while",
+    Asm -> "asm",
 });
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -52,13 +56,14 @@ pub enum Grouper {
     Brace,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Lexeme {
     Keyword(Keyword),
     Register(Register),
     Primitive(PrimitiveType),
 
     Integer(i32),
+    Unsigned(u32),
     Float(f32),
     String(usize),
     Identifier(usize),
