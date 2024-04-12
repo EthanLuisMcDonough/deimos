@@ -56,7 +56,7 @@ pub fn parse_expression(mut tokens: TokenIter) -> ParseResult<Expression> {
             Lexeme::Identifier(i) if stack.yield_unary() => {
                 stack.push_expr(Expression::Identifier(Located::new(i, token.loc)));
             }
-            Lexeme::Deref => stack.push_op(UnaryOp::Deref, token.loc)?,
+            Lexeme::Multiply if stack.yield_unary() => stack.push_op(UnaryOp::Deref, token.loc)?,
             Lexeme::Reference => stack.push_op(UnaryOp::Reference, token.loc)?,
             Lexeme::Plus => stack.push_op(BinaryOp::Add, token.loc)?,
             Lexeme::Minus if stack.yield_unary() => stack.push_op(UnaryOp::Negation, token.loc)?,

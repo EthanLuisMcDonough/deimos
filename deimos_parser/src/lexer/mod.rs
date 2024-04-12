@@ -123,7 +123,6 @@ pub fn lex(s: &str) -> LexResult<Tokens> {
             '/' => Lexeme::Divide,
             '%' => Lexeme::Modulo,
             '&' => Lexeme::Reference,
-            '@' => Lexeme::Deref,
 
             // Parse comments
             '#' => {

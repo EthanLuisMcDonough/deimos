@@ -74,9 +74,7 @@ pub enum Lexeme {
     Divide,
     Modulo,
     Equals,
-
     Reference,
-    Deref,
 
     Colon,
     Semicolon,
