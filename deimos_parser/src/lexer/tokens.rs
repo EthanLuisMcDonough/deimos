@@ -1,5 +1,5 @@
 use crate::keyword_map;
-use deimos_ast::{PrimitiveType, Register};
+use deimos_ast::{PrimitiveType, Reg};
 
 pub fn test_primitive(s: &str) -> Option<PrimitiveType> {
     Some(match s {
@@ -11,15 +11,15 @@ pub fn test_primitive(s: &str) -> Option<PrimitiveType> {
     })
 }
 
-pub fn test_register(s: &str) -> Option<Register> {
+pub fn test_register(s: &str) -> Option<Reg> {
     Some(match s {
-        "a0" => Register::A0,
-        "a1" => Register::A1,
-        "a2" => Register::A2,
-        "a3" => Register::A3,
-        "v0" => Register::V0,
-        "f0" => Register::F0,
-        "f12" => Register::F12,
+        "a0" => Reg::A0,
+        "a1" => Reg::A1,
+        "a2" => Reg::A2,
+        "a3" => Reg::A3,
+        "v0" => Reg::V0,
+        "f0" => Reg::F0,
+        "f12" => Reg::F12,
         _ => return None,
     })
 }
@@ -59,7 +59,7 @@ pub enum Grouper {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Lexeme {
     Keyword(Keyword),
-    Register(Register),
+    Register(Reg),
     Primitive(PrimitiveType),
 
     Integer(i32),

@@ -102,7 +102,7 @@ impl CliArgs {
         deimos_parser::validate(&ast)?;
 
         let codegen = deimos_codegen::codegen(&ast);
-        codegen.write_to_file(self.out.as_deref().unwrap_or(DEFAULT_OUTNAME))?;
+        std::fs::write(self.out.as_deref().unwrap_or(DEFAULT_OUTNAME), codegen)?;
 
         Ok(())
     }

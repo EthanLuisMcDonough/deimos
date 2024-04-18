@@ -1,5 +1,5 @@
 use crate::lexer::{Keyword, Lexeme};
-use deimos_ast::{Located, Location, Register};
+use deimos_ast::{Located, Location, Reg};
 use std::error::Error;
 use std::fmt::Display;
 
@@ -11,7 +11,7 @@ pub enum ParseError {
     InvalidRedefinition(Located<usize>),
     BodyRedefinition(Location),
     InvalidOperation(Location),
-    DuplicateRegister(Located<Register>),
+    DuplicateRegister(Located<Reg>),
     UnexpectedToken(Located<Lexeme>),
     ReservedWord(Keyword),
     ExpectedRValue(Location),

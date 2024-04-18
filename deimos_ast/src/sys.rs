@@ -2,7 +2,7 @@ use super::{Identifier, Located};
 use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub enum Register {
+pub enum Reg {
     A0,
     A1,
     A2,
@@ -12,7 +12,7 @@ pub enum Register {
     F12,
 }
 
-impl Register {
+impl Reg {
     pub fn str(&self) -> &'static str {
         match self {
             Self::A0 => "$a0",
@@ -33,7 +33,7 @@ impl Register {
     }
 }
 
-pub type RegisterMap = HashMap<Register, Identifier>;
+pub type RegisterMap = HashMap<Reg, Identifier>;
 
 #[derive(Debug, Default)]
 pub struct RegVars {
