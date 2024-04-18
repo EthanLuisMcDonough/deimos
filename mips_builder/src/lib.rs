@@ -47,6 +47,18 @@ pub enum MipsAddress<'a> {
     },
 }
 
+impl<'a> From<&'a str> for MipsAddress<'a> {
+    fn from(value: &'a str) -> Self {
+        Self::Label(value)
+    }
+}
+
+impl<'a> From<Register> for MipsAddress<'a> {
+    fn from(value: Register) -> Self {
+        Self::Register(value)
+    }
+}
+
 impl std::fmt::Display for MipsAddress<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -86,16 +98,10 @@ fn write_len_directive(s: &mut String, directive: &str, len: usize, default: imp
 
 pub enum DataDirective {
     Word(Vec<u32>),
-    WordLen {
-        len: usize,
-        default: u32,
-    },
+    WordLen { len: usize, default: u32 },
     Asciiz(String),
     Byte(Vec<u8>),
-    ByteLen {
-        len: usize,
-        default: u8,
-    }
+    ByteLen { len: usize, default: u8 },
 }
 
 impl From<Vec<u32>> for DataDirective {
@@ -104,9 +110,36 @@ impl From<Vec<u32>> for DataDirective {
     }
 }
 
+impl From<u32> for DataDirective {
+    fn from(value: u32) -> Self {
+        Self::WordLen {
+            len: 1,
+            default: value,
+        }
+    }
+}
+
+impl From<i32> for DataDirective {
+    fn from(value: i32) -> Self {
+        Self::WordLen {
+            len: 1,
+            default: value as u32,
+        }
+    }
+}
+
 impl From<Vec<u8>> for DataDirective {
     fn from(value: Vec<u8>) -> Self {
         Self::Byte(value)
+    }
+}
+
+impl From<u8> for DataDirective {
+    fn from(value: u8) -> Self {
+        Self::ByteLen {
+            len: 1,
+            default: value,
+        }
     }
 }
 
@@ -213,23 +246,23 @@ impl MipsBuilder {
         self.instr(format!("mflo {}", dest));
     }
 
-    pub fn load_word(&mut self, dest: Register, loc: MipsAddress) {
-        self.addr_instr("lw", dest, loc);
+    pub fn load_word<'a>(&mut self, dest: Register, loc: impl Into<MipsAddress<'a>>) {
+        self.addr_instr("lw", dest, loc.into());
     }
-    pub fn save_word(&mut self, source: Register, loc: MipsAddress) {
-        self.addr_instr("sw", source, loc);
+    pub fn save_word<'a>(&mut self, source: Register, loc: impl Into<MipsAddress<'a>>) {
+        self.addr_instr("sw", source, loc.into());
     }
-    pub fn load_byte(&mut self, dest: Register, loc: MipsAddress) {
-        self.addr_instr("lb", dest, loc);
+    pub fn load_byte<'a>(&mut self, dest: Register, loc: impl Into<MipsAddress<'a>>) {
+        self.addr_instr("lb", dest, loc.into());
     }
-    pub fn save_byte(&mut self, source: Register, loc: MipsAddress) {
-        self.addr_instr("sb", source, loc);
+    pub fn save_byte<'a>(&mut self, source: Register, loc: impl Into<MipsAddress<'a>>) {
+        self.addr_instr("sb", source, loc.into());
     }
-    pub fn load_f32(&mut self, dest: FloatRegister, loc: MipsAddress) {
-        self.addr_instr("l.s", dest, loc);
+    pub fn load_f32<'a>(&mut self, dest: FloatRegister, loc: impl Into<MipsAddress<'a>>) {
+        self.addr_instr("l.s", dest, loc.into());
     }
-    pub fn save_f32(&mut self, dest: FloatRegister, loc: MipsAddress) {
-        self.addr_instr("s.s", dest, loc);
+    pub fn save_f32<'a>(&mut self, dest: FloatRegister, loc: impl Into<MipsAddress<'a>>) {
+        self.addr_instr("s.s", dest, loc.into());
     }
 
     fn ins_word(&mut self, val: u32) -> usize {
@@ -330,6 +363,58 @@ impl MipsBuilder {
     pub fn branch_not_eq_zero(&mut self, reg1: Register, lbl: &str) {
         self.branch_not_eq(reg1, Register::Zero, lbl);
     }
+    pub fn branch(&mut self, lbl: &str) {
+        self.instr(format!("b {}", lbl));
+    }
+
+    pub fn branch_float_true(&mut self, lbl: &str) {
+        self.instr(format!("bc1t {}", lbl));
+    }
+    pub fn branch_float_false(&mut self, lbl: &str) {
+        self.instr(format!("bc1f {}", lbl));
+    }
+
+    pub fn mov_f32(&mut self, dest: FloatRegister, source: FloatRegister) {
+        self.instr2("mov.s", dest, source);
+    }
+    pub fn mov_from_f32(&mut self, dest: Register, source: FloatRegister) {
+        self.instr2("mfc1", dest, source);
+    }
+    pub fn mov_to_f32(&mut self, dest: FloatRegister, source: Register) {
+        self.instr2("mtc1", source, dest);
+    }
+    pub fn cast_to_f32(&mut self, int: FloatRegister, float: FloatRegister) {
+        self.instr2("cvt.w.s", int, float);
+    }
+    pub fn cast_from_f32(&mut self, float: FloatRegister, int: FloatRegister) {
+        self.instr2("cvt.s.w", float, int);
+    }
+
+    pub fn add_f32(&mut self, dest: FloatRegister, f1: FloatRegister, f2: FloatRegister) {
+        self.instr3("add.s", dest, f1, f2);
+    }
+    pub fn sub_f32(&mut self, dest: FloatRegister, f1: FloatRegister, f2: FloatRegister) {
+        self.instr3("sub.s", dest, f1, f2);
+    }
+    pub fn mul_f32(&mut self, dest: FloatRegister, f1: FloatRegister, f2: FloatRegister) {
+        self.instr3("mul.s", dest, f1, f2);
+    }
+    pub fn div_f32(&mut self, dest: FloatRegister, f1: FloatRegister, f2: FloatRegister) {
+        self.instr3("div.s", dest, f1, f2);
+    }
+    pub fn neg_f32(&mut self, dest: FloatRegister, val: FloatRegister) {
+        self.instr2("neg.s", dest, val);
+    }
+
+    pub fn equals_f32(&mut self, val1: FloatRegister, val2: FloatRegister) {
+        self.instr2("c.eq.s", val1, val2);
+    }
+    pub fn less_than_or_eq_f32(&mut self, val1: FloatRegister, val2: FloatRegister) {
+        self.instr2("c.le.s", val1, val2);
+    }
+    pub fn less_than_f32(&mut self, val1: FloatRegister, val2: FloatRegister) {
+        self.instr2("c.lt.s", val1, val2);
+    }
 
     pub fn add_def(&mut self, d: DataDef) {
         self.data_vars.push(d);
@@ -342,7 +427,7 @@ impl MipsBuilder {
     pub fn codegen(self) -> String {
         let mut buf = String::new();
         buf.push_str("\t.data\n");
-        
+
         // Write word constants
         let mut word_bank = DataDef::new(WORD_CONSTS_LBL);
         word_bank.add_dir(self.word_consts);
@@ -353,8 +438,8 @@ impl MipsBuilder {
             val.append(&mut buf);
         }
 
-        buf.push_str("\n\n\t.text\n");
-        
+        buf.push_str("\n\t.text\n");
+
         // Write instructions
         for block in self.blocks {
             block.append(&mut buf);
