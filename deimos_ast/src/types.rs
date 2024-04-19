@@ -8,13 +8,13 @@ pub enum PrimitiveType {
     U8,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParamType {
     pub param_type: Located<PrimitiveType>,
     pub indirection: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DeclType {
     Param(Located<ParamType>),
     Array {

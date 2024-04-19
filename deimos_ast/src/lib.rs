@@ -25,6 +25,9 @@ pub type Definitions = HashMap<usize, Definition>;
 #[derive(Debug)]
 pub struct Program {
     pub bank: StringBank,
+    pub fns: Vec<Function>,
+    pub static_vars: Vec<VarDecl>,
+    pub mem_vars: Vec<MemVar>,
     pub definitions: Definitions,
     pub body: FunctionBlock,
 }

@@ -42,17 +42,7 @@ pub struct MemVar {
 
 #[derive(Debug)]
 pub enum Definition {
-    Function(Function),
-    Static(VarDecl),
-    MemVar(MemVar),
-}
-
-impl Definition {
-    pub fn name(&self) -> usize {
-        match self {
-            Self::Function(f) => f.name.data,
-            Self::Static(s) => s.name.data,
-            Self::MemVar(m) => m.var.name.data,
-        }
-    }
+    Function(usize),
+    Static(usize),
+    MemVar(usize),
 }

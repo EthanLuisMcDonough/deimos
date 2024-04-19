@@ -13,15 +13,20 @@ use self::iter::TokenIter;
 pub fn parse(Tokens { lexemes, bank }: Tokens) -> ParseResult<Program> {
     let mut tokens = TokenIter::new(&lexemes);
     let mut definitions = Definitions::new();
+    let mut fns = Vec::new();
+    let mut static_vars = Vec::new();
+    let mut mem_vars = Vec::new();
     let mut body = None;
 
     while let Some(token) = tokens.next() {
-        let def = match token.data {
+        let (name, def) = match token.data {
             Lexeme::Keyword(Keyword::Fn) => {
                 let name = tokens.expect_ident()?;
                 let args = parse_fn_params(&mut tokens)?;
                 let block = parse_fn_body(&mut tokens)?;
-                Definition::Function(Function { name, args, block })
+                let fn_id = fns.len();
+                fns.push(Function { name, args, block });
+                (name, Definition::Function(fn_id))
             }
             Lexeme::Keyword(Keyword::Record) => {
                 return Err(ParseError::ReservedWord(Keyword::Record))
@@ -29,10 +34,19 @@ pub fn parse(Tokens { lexemes, bank }: Tokens) -> ParseResult<Program> {
             Lexeme::Keyword(Keyword::Mem) => {
                 let addr = tokens.expect_group(Grouper::Parenthesis, |t| t.expect_int())?;
                 let var = parse_typed_ident(&mut tokens)?;
+                let name = var.name;
                 tokens.expect_semicolon()?;
-                Definition::MemVar(MemVar { addr, var })
+                let mem_id = mem_vars.len();
+                mem_vars.push(MemVar { addr, var });
+                (name, Definition::MemVar(mem_id))
             }
-            Lexeme::Keyword(Keyword::Static) => Definition::Static(parse_fn_varinit(&mut tokens)?),
+            Lexeme::Keyword(Keyword::Static) => {
+                let static_var = parse_fn_varinit(&mut tokens)?;
+                let name = static_var.name;
+                let static_id = static_vars.len();
+                static_vars.push(static_var);
+                (name, Definition::MemVar(static_id))
+            }
             Lexeme::Keyword(Keyword::Program) if body.is_some() => {
                 return Err(ParseError::BodyRedefinition(token.loc));
             }
@@ -42,18 +56,17 @@ pub fn parse(Tokens { lexemes, bank }: Tokens) -> ParseResult<Program> {
             }
             _ => return Err(ParseError::UnexpectedToken(token)),
         };
-
-        let name = def.name();
-        if definitions.insert(name, def).is_some() {
-            return Err(ParseError::InvalidRedefinition(Located::new(
-                name, token.loc,
-            )));
+        if definitions.insert(name.data, def).is_some() {
+            return Err(ParseError::InvalidRedefinition(name));
         }
     }
 
     body.map(|body| Program {
         bank,
         definitions,
+        fns,
+        static_vars,
+        mem_vars,
         body,
     })
     .ok_or(ParseError::NoBody)
