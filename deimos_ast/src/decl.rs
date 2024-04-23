@@ -3,10 +3,10 @@ use crate::{Block, DeclType, Identifier, Located, ParamType, PrimitiveValue};
 #[derive(Debug)]
 pub enum InitValue {
     Primitive(PrimitiveValue),
-    List(Vec<InitValue>),
+    List(Vec<PrimitiveValue>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TypedIdent {
     pub name: Identifier,
     pub field_type: Located<ParamType>,
@@ -37,7 +37,7 @@ pub struct Function {
 #[derive(Debug)]
 pub struct MemVar {
     pub var: TypedIdent,
-    pub addr: Located<usize>,
+    pub addr: Located<u32>,
 }
 
 #[derive(Debug)]

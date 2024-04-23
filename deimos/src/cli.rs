@@ -99,9 +99,7 @@ impl CliArgs {
             return Ok(());
         }
 
-        deimos_parser::validate(&ast)?;
-
-        let codegen = deimos_codegen::codegen(&ast);
+        let codegen = deimos_codegen::codegen(&ast)?;
         std::fs::write(self.out.as_deref().unwrap_or(DEFAULT_OUTNAME), codegen)?;
 
         Ok(())

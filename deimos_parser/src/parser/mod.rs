@@ -104,27 +104,43 @@ fn parse_fn_varinit(tokens: &mut TokenIter) -> ParseResult<VarDecl> {
     })
 }
 
-fn parse_initval(tokens: &mut TokenIter) -> ParseResult<InitValue> {
+fn parse_primitive_val(tokens: &mut TokenIter) -> ParseResult<PrimitiveValue> {
     Ok(next_guard!(tokens (_loc) {
-        Lexeme::Integer(i) => InitValue::Primitive(PrimitiveValue::Int(Located::new(i, _loc))),
-        Lexeme::Float(f) => InitValue::Primitive(PrimitiveValue::Float(Located::new(f, _loc))),
-        Lexeme::String(s) => InitValue::Primitive(PrimitiveValue::String(Located::new(s, _loc))),
-        Lexeme::Unsigned(u) => InitValue::Primitive(PrimitiveValue::Unsigned(Located::new(u, _loc))),
-        Lexeme::GroupBegin(Grouper::Bracket) => {
-            let mut vals = Vec::new();
-            loop {
-                if tokens.next_if_eq(Lexeme::GroupEnd(Grouper::Bracket)).is_some() {
-                    break;
-                }
-                vals.push(parse_initval(tokens)?);
-                next_guard!(tokens {
-                    Lexeme::Comma => {},
-                    Lexeme::GroupEnd(Grouper::Bracket) => break,
-                });
-            }
-            InitValue::List(vals)
-        }
+        Lexeme::Minus => {
+            PrimitiveValue::Int(next_guard!(tokens (loc) {
+                Lexeme::Integer(i) => Located::new(i * -1, loc),
+            }))
+        },
+        Lexeme::Integer(i) => PrimitiveValue::Int(Located::new(i, _loc)),
+        Lexeme::Float(f) => PrimitiveValue::Float(Located::new(f, _loc)),
+        Lexeme::String(s) => PrimitiveValue::String(Located::new(s, _loc)),
+        Lexeme::Unsigned(u) => PrimitiveValue::Unsigned(Located::new(u, _loc)),
     }))
+}
+
+fn parse_initval(tokens: &mut TokenIter) -> ParseResult<InitValue> {
+    if tokens
+        .next_if_eq(Lexeme::GroupBegin(Grouper::Bracket))
+        .is_some()
+    {
+        let mut vals = Vec::new();
+        loop {
+            if tokens
+                .next_if_eq(Lexeme::GroupEnd(Grouper::Bracket))
+                .is_some()
+            {
+                break;
+            }
+            vals.push(parse_primitive_val(tokens)?);
+            next_guard!(tokens {
+                Lexeme::Comma => {},
+                Lexeme::GroupEnd(Grouper::Bracket) => break,
+            });
+        }
+        Ok(InitValue::List(vals))
+    } else {
+        parse_primitive_val(tokens).map(InitValue::Primitive)
+    }
 }
 
 fn parse_typed_ident(tokens: &mut TokenIter) -> ParseResult<TypedIdent> {

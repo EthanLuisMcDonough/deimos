@@ -116,16 +116,16 @@ impl<'a> TokenIter<'a> {
         }
     }
 
-    pub fn expect_int(&mut self) -> ParseResult<Located<usize>> {
+    pub fn expect_int(&mut self) -> ParseResult<Located<u32>> {
         match self.next() {
             Some(Located {
                 data: Lexeme::Integer(i),
                 loc,
-            }) => Ok(Located::new(i as usize, loc)),
+            }) => Ok(Located::new(i as u32, loc)),
             Some(Located {
                 data: Lexeme::Unsigned(i),
                 loc,
-            }) => Ok(Located::new(i as usize, loc)),
+            }) => Ok(Located::new(i as u32, loc)),
             Some(t) => Err(ParseError::UnexpectedToken(t)),
             None => Err(self.eof_err()),
         }

@@ -43,7 +43,7 @@ pub struct RegVars {
 
 #[derive(Debug)]
 pub struct Syscall {
-    pub syscall_id: Located<usize>,
+    pub syscall_id: Located<u32>,
     pub map: RegVars,
 }
 

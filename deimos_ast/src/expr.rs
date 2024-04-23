@@ -28,7 +28,7 @@ pub enum BinaryOp {
     IndexAccess,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PrimitiveValue {
     Float(Located<f32>),
     Int(Located<i32>),

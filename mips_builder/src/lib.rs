@@ -5,8 +5,8 @@ use std::fmt::Display;
 mod registers;
 pub use registers::*;
 
-const WORD_CONSTS_LBL: &'static str = "WORD_CONSTS";
 const FMT_ITEMS_PER_LINE: usize = 10;
+const WORD_CONSTS_LBL: &'static str = "WORD_CONST";
 
 pub struct MipsBlock {
     label: String,
@@ -27,29 +27,74 @@ impl MipsBlock {
 
 pub enum MipsAddress<'a> {
     Register(Register),
-    Label(&'a str),
+    Label(Cow<'a, str>),
     RegisterOffset {
         register: Register,
-        offset: i64,
+        offset: i32,
     },
     RegisterLabel {
         register: Register,
-        label: &'a str,
+        label: Cow<'a, str>,
     },
     LabelOffset {
-        label: &'a str,
-        offset: i64,
+        label: Cow<'a, str>,
+        offset: i32,
     },
     Full {
-        label: &'a str,
-        offset: i64,
+        label: Cow<'a, str>,
+        offset: i32,
         register: Register,
     },
+    Addr(u32),
+    RegisterAddr {
+        register: Register,
+        addr: u32,
+    },
+}
+
+/// Add or subtract to mips address offset
+impl<'a> MipsAddress<'a> {
+    pub fn add(self, offset: i32) -> Self {
+        match self {
+            Self::Addr(u) => Self::Addr(u.wrapping_add_signed(offset)),
+            Self::RegisterAddr { register, addr } => Self::RegisterAddr {
+                register,
+                addr: addr.wrapping_add_signed(offset),
+            },
+            Self::Register(register) => Self::RegisterOffset { register, offset },
+            Self::RegisterOffset {
+                register,
+                offset: o,
+            } => Self::RegisterOffset {
+                register,
+                offset: o + offset,
+            },
+            Self::Label(label) => Self::LabelOffset { label, offset },
+            Self::LabelOffset { label, offset: o } => Self::LabelOffset {
+                label,
+                offset: o + offset,
+            },
+            Self::RegisterLabel { register, label } => Self::Full {
+                label,
+                offset,
+                register,
+            },
+            Self::Full {
+                label,
+                offset: o,
+                register,
+            } => Self::Full {
+                label,
+                offset: o + offset,
+                register,
+            },
+        }
+    }
 }
 
 impl<'a> From<&'a str> for MipsAddress<'a> {
     fn from(value: &'a str) -> Self {
-        Self::Label(value)
+        Self::Label(Cow::Borrowed(value))
     }
 }
 
@@ -72,6 +117,8 @@ impl std::fmt::Display for MipsAddress<'_> {
                 offset,
                 register,
             } => write!(f, "{}+{}({})", label, offset, register),
+            Self::Addr(a) => write!(f, "{:#010X}", a),
+            Self::RegisterAddr { register, addr } => write!(f, "{:#010X}({})", addr, register),
         }
     }
 }
@@ -102,6 +149,8 @@ pub enum DataDirective {
     Asciiz(String),
     Byte(Vec<u8>),
     ByteLen { len: usize, default: u8 },
+    Float(Vec<f32>),
+    FloatLen { len: usize, default: f32 },
 }
 
 impl From<Vec<u32>> for DataDirective {
@@ -143,6 +192,21 @@ impl From<u8> for DataDirective {
     }
 }
 
+impl From<f32> for DataDirective {
+    fn from(value: f32) -> Self {
+        Self::FloatLen {
+            len: 1,
+            default: value,
+        }
+    }
+}
+
+impl From<Vec<f32>> for DataDirective {
+    fn from(value: Vec<f32>) -> Self {
+        Self::Float(value)
+    }
+}
+
 impl From<String> for DataDirective {
     fn from(value: String) -> Self {
         Self::Asciiz(value)
@@ -161,6 +225,8 @@ impl DataDirective {
             }
             Self::Byte(b) => write_group_directive(s, ".byte", b),
             Self::ByteLen { len, default } => write_len_directive(s, ".byte", *len, default),
+            Self::Float(f) => write_group_directive(s, ".float", f),
+            Self::FloatLen { len, default } => write_len_directive(s, ".float", *len, default),
         }
     }
 }
@@ -265,40 +331,31 @@ impl MipsBuilder {
         self.addr_instr("s.s", dest, loc.into());
     }
 
+    pub fn load_addr<'a>(&mut self, dest: Register, addr: impl Into<MipsAddress<'a>>) {
+        self.instr(format!("la {}, {}", dest, addr.into()));
+    }
+
     fn ins_word(&mut self, val: u32) -> usize {
         let word_count = self.word_const_ind.len();
         self.word_consts.push(val);
         *self.word_const_ind.entry(val).or_insert(word_count)
     }
-    pub fn const_u32(&mut self, val: u32, dest: Register) {
+    pub fn const_word(&mut self, val: u32, dest: Register) {
         if val == 0 {
             self.mov(dest, Register::Zero);
         } else {
-            let index = self.ins_word(val) as i64;
-            self.load_word(
-                dest,
-                MipsAddress::LabelOffset {
-                    label: WORD_CONSTS_LBL,
-                    offset: index * 4,
-                },
-            );
+            self.instr(format!("li {}, {}", dest, val));
         }
     }
-    pub fn const_i32(&mut self, val: i32, dest: Register) {
-        self.const_u32(val as u32, dest);
-    }
     pub fn const_f32(&mut self, val: f32, dest: FloatRegister) {
-        let index = self.ins_word(val.to_bits()) as i64;
+        let index = self.ins_word(val.to_bits()) as i32;
         self.load_f32(
             dest,
             MipsAddress::LabelOffset {
-                label: WORD_CONSTS_LBL,
+                label: WORD_CONSTS_LBL.into(),
                 offset: index * 4,
             },
         );
-    }
-    pub fn const_u8(&mut self, val: u8, dest: Register) {
-        self.instr(format!("li {}, {}", dest, val));
     }
 
     pub fn add_i32(&mut self, dest: Register, source1: Register, source2: Register) {
@@ -420,7 +477,7 @@ impl MipsBuilder {
         self.data_vars.push(d);
     }
     pub fn add_syscall(&mut self, id: u8) {
-        self.const_u8(id, Register::V0);
+        self.const_word(id as u32, Register::V0);
         self.instr("syscall".to_string());
     }
 
@@ -433,7 +490,7 @@ impl MipsBuilder {
         word_bank.add_dir(self.word_consts);
         word_bank.append(&mut buf);
 
-        // Write other data defs
+        // Write data defs
         for val in self.data_vars {
             val.append(&mut buf);
         }
