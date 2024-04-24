@@ -22,6 +22,13 @@ impl<T> Located<T> {
     pub fn new(data: T, loc: Location) -> Self {
         Self { data, loc }
     }
+
+    pub fn as_ref(&self) -> Located<&T> {
+        Located {
+            data: &self.data,
+            loc: self.loc,
+        }
+    }
 }
 
 impl<T: Clone> Clone for Located<T> {

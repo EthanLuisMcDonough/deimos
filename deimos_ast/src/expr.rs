@@ -28,12 +28,12 @@ pub enum BinaryOp {
     IndexAccess,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum PrimitiveValue {
-    Float(Located<f32>),
-    Int(Located<i32>),
-    Unsigned(Located<u32>),
-    String(Located<usize>),
+    Float(f32),
+    Int(i32),
+    Unsigned(u32),
+    String(usize),
 }
 
 #[derive(Debug)]
@@ -52,5 +52,5 @@ pub enum Expression {
         cast_type: ParamType,
     },
     Identifier(Identifier),
-    Primitive(PrimitiveValue),
+    Primitive(Located<PrimitiveValue>),
 }

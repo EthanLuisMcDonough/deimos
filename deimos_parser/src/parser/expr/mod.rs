@@ -39,19 +39,20 @@ pub fn parse_expression(mut tokens: TokenIter) -> ParseResult<Expression> {
     while let Some(token) = tokens.next() {
         match token.data {
             Lexeme::Integer(i) if stack.yield_unary() => {
-                stack.push_expr(Expression::Primitive(PrimitiveValue::Int(Located::new(
-                    i, token.loc,
-                ))));
+                let prim = Located::new(PrimitiveValue::Int(i), token.loc);
+                stack.push_expr(Expression::Primitive(prim));
+            }
+            Lexeme::Unsigned(i) if stack.yield_unary() => {
+                let prim = Located::new(PrimitiveValue::Unsigned(i), token.loc);
+                stack.push_expr(Expression::Primitive(prim));
             }
             Lexeme::Float(f) if stack.yield_unary() => {
-                stack.push_expr(Expression::Primitive(PrimitiveValue::Float(Located::new(
-                    f, token.loc,
-                ))));
+                let prim = Located::new(PrimitiveValue::Float(f), token.loc);
+                stack.push_expr(Expression::Primitive(prim));
             }
             Lexeme::String(s) if stack.yield_unary() => {
-                stack.push_expr(Expression::Primitive(PrimitiveValue::String(Located::new(
-                    s, token.loc,
-                ))));
+                let prim = Located::new(PrimitiveValue::String(s), token.loc);
+                stack.push_expr(Expression::Primitive(prim));
             }
             Lexeme::Identifier(i) if stack.yield_unary() => {
                 stack.push_expr(Expression::Identifier(Located::new(i, token.loc)));

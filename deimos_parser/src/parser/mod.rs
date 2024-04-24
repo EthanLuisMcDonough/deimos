@@ -104,25 +104,23 @@ fn parse_fn_varinit(tokens: &mut TokenIter) -> ParseResult<VarDecl> {
     })
 }
 
-fn parse_primitive_val(tokens: &mut TokenIter) -> ParseResult<PrimitiveValue> {
+fn parse_primitive_val(tokens: &mut TokenIter) -> ParseResult<Located<PrimitiveValue>> {
     Ok(next_guard!(tokens (_loc) {
         Lexeme::Minus => {
-            PrimitiveValue::Int(next_guard!(tokens (loc) {
-                Lexeme::Integer(i) => Located::new(i * -1, loc),
-            }))
+            next_guard!(tokens (loc) {
+                Lexeme::Integer(i) => Located::new(PrimitiveValue::Int(i * -1), loc),
+                Lexeme::Float(f) => Located::new(PrimitiveValue::Float(f * -1.0), loc),
+            })
         },
-        Lexeme::Integer(i) => PrimitiveValue::Int(Located::new(i, _loc)),
-        Lexeme::Float(f) => PrimitiveValue::Float(Located::new(f, _loc)),
-        Lexeme::String(s) => PrimitiveValue::String(Located::new(s, _loc)),
-        Lexeme::Unsigned(u) => PrimitiveValue::Unsigned(Located::new(u, _loc)),
+        Lexeme::Integer(i) => Located::new(PrimitiveValue::Int(i), _loc),
+        Lexeme::Float(f) => Located::new(PrimitiveValue::Float(f), _loc),
+        Lexeme::String(s) => Located::new(PrimitiveValue::String(s), _loc),
+        Lexeme::Unsigned(u) => Located::new(PrimitiveValue::Unsigned(u), _loc),
     }))
 }
 
-fn parse_initval(tokens: &mut TokenIter) -> ParseResult<InitValue> {
-    if tokens
-        .next_if_eq(Lexeme::GroupBegin(Grouper::Bracket))
-        .is_some()
-    {
+fn parse_initval(tokens: &mut TokenIter) -> ParseResult<Located<InitValue>> {
+    if let Some(list_loc) = tokens.next_if_eq(Lexeme::GroupBegin(Grouper::Bracket)) {
         let mut vals = Vec::new();
         loop {
             if tokens
@@ -137,9 +135,10 @@ fn parse_initval(tokens: &mut TokenIter) -> ParseResult<InitValue> {
                 Lexeme::GroupEnd(Grouper::Bracket) => break,
             });
         }
-        Ok(InitValue::List(vals))
+        Ok(Located::new(InitValue::List(vals), list_loc))
     } else {
-        parse_primitive_val(tokens).map(InitValue::Primitive)
+        let Located { data, loc } = parse_primitive_val(tokens)?;
+        Ok(Located::new(InitValue::Primitive(data), loc))
     }
 }
 

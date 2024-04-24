@@ -1,9 +1,11 @@
 use crate::{Block, DeclType, Identifier, Located, ParamType, PrimitiveValue};
 
-#[derive(Debug)]
+pub type InitList = Vec<Located<PrimitiveValue>>;
+
+#[derive(Debug, Clone)]
 pub enum InitValue {
     Primitive(PrimitiveValue),
-    List(Vec<PrimitiveValue>),
+    List(Vec<Located<PrimitiveValue>>),
 }
 
 #[derive(Debug, Clone)]
@@ -16,7 +18,7 @@ pub struct TypedIdent {
 pub struct VarDecl {
     pub variable: DeclType,
     pub name: Identifier,
-    pub init: Option<InitValue>,
+    pub init: Option<Located<InitValue>>,
 }
 
 #[derive(Debug, Default)]
