@@ -23,10 +23,19 @@ fn get_def_size(d: &DeclType) -> u32 {
 /// is the inverse of the working stack offset in that it represents
 /// the running size of the stack as variables are inserted. Subtract
 /// this value from the stack size and you'll get the actual offset.
-struct LocalStackVal {
+struct StackVal {
     val_type: DeclType,
-    init_val: Option<Located<InitValue>>,
-    offset: u32,
+    data: StackValType,
+}
+
+enum StackValType {
+    LocalVar {
+        offset: u32,
+        init_val: Option<Located<InitValue>>,
+    },
+    Argument {
+        offset: u32,
+    },
 }
 
 /// Minimal type that can represent addresses without any strings.
@@ -61,9 +70,10 @@ pub struct LocatedValue {
 /// Represents a function scope
 #[derive(Default)]
 pub struct LocalScope {
-    vars: HashMap<usize, LocalStackVal>,
+    vars: HashMap<usize, StackVal>,
     return_addr_offset: u32,
-    stack_size: u32,
+    local_stack_size: u32,
+    arg_stack_size: u32,
 }
 
 impl LocalScope {
@@ -85,24 +95,24 @@ impl LocalScope {
 
     fn insert_fn_body(&mut self, block: &FunctionBlock) -> ValidationResult<()> {
         for local_var in &block.vars {
-            self.insert_local(
-                local_var.name,
-                local_var.variable.clone(),
-                local_var.init.clone(),
-            )?;
+            self.insert_local(local_var)?;
         }
         Ok(())
     }
 
     /// Insert the return address at current position
     fn insert_ra(&mut self) {
-        self.stack_size += 4;
-        self.return_addr_offset = self.stack_size;
+        self.local_stack_size += 4;
+        self.return_addr_offset = self.local_stack_size;
     }
 
     /// Gets stack offset for return address variable
     fn get_ra_stack_offset(&self) -> u32 {
-        self.calc_offset(self.return_addr_offset)
+        let stack_data = StackValType::LocalVar {
+            offset: self.return_addr_offset,
+            init_val: None,
+        };
+        self.calc_offset(&stack_data)
     }
 
     fn get_ra_stack_loc(&self) -> ValLocation {
@@ -111,35 +121,41 @@ impl LocalScope {
 
     /// Insert argument into function scope
     fn insert_arg(&mut self, name: Identifier, typ: impl Into<DeclType>) -> ValidationResult<()> {
-        self.insert_local(name, typ, None)
+        let typ = typ.into();
+        self.arg_stack_size += get_def_size(&typ);
+        let ins_val = StackVal {
+            val_type: typ,
+            data: StackValType::Argument {
+                offset: self.arg_stack_size,
+            },
+        };
+        self.insert_val_internal(name, ins_val)
     }
 
     /// Insert local variable into funciton scope
-    fn insert_local(
-        &mut self,
-        name: Identifier,
-        typ: impl Into<DeclType>,
-        init: impl Into<Option<Located<InitValue>>>,
-    ) -> ValidationResult<()> {
-        let typ = typ.into();
-        self.stack_size += get_def_size(&typ);
-        let ins_val = LocalStackVal {
-            val_type: typ,
-            offset: self.stack_size,
-            init_val: init.into(),
+    fn insert_local(&mut self, var: &VarDecl) -> ValidationResult<()> {
+        self.local_stack_size += get_def_size(&var.variable);
+        let ins_val = StackVal {
+            val_type: var.variable.clone(),
+            data: StackValType::LocalVar {
+                offset: self.local_stack_size,
+                init_val: var.init.clone(),
+            },
         };
-        if self.vars.insert(name.data, ins_val).is_some() {
-            return Err(ValidationError::new(
-                ValidationErrorKind::Redefinition,
-                name.loc,
-            ));
+        self.insert_val_internal(var.name, ins_val)
+    }
+
+    fn insert_val_internal(&mut self, name: Identifier, val: StackVal) -> ValidationResult<()> {
+        if self.vars.insert(name.data, val).is_some() {
+            Err(ValidationError::Redefinition(name.loc))
+        } else {
+            Ok(())
         }
-        Ok(())
     }
 
     fn get_local_var(&self, name: Identifier) -> Option<LocatedValue> {
         self.vars.get(&name.data).map(|val| LocatedValue {
-            loc: ValLocation::Stack(self.calc_offset(val.offset)),
+            loc: ValLocation::Stack(self.calc_offset(&val.data)),
             val: val.val_type.clone(),
         })
     }
@@ -158,21 +174,38 @@ impl LocalScope {
         global: &'a GlobalScope,
     ) -> ValidationResult<&'a FunctionArgs> {
         if self.vars.contains_key(&name.data) {
-            return Err(ValidationError::new(
-                ValidationErrorKind::ShadowedFuncCall,
-                name.loc,
-            ));
+            return Err(ValidationError::ShadowedFuncCall(name.loc));
         }
         global.get_fn(name)
     }
 
     /// Padded size of the stack
-    fn get_stack_size(&self) -> u32 {
-        self.stack_size.div_ceil(4) * 4
+    fn get_local_stack_size(&self) -> u32 {
+        self.local_stack_size.div_ceil(4) * 4
     }
 
-    fn calc_offset(&self, offset: u32) -> u32 {
+    /// Padded size of the args
+    fn get_arg_stack_size(&self) -> u32 {
+        self.arg_stack_size.div_ceil(4) * 4
+    }
+
+    fn get_stack_size(&self) -> u32 {
+        self.get_arg_stack_size() + self.get_local_stack_size()
+    }
+
+    fn calc_offset_local(&self, offset: u32) -> u32 {
+        self.get_local_stack_size() - offset
+    }
+
+    fn calc_offset_arg(&self, offset: u32) -> u32 {
         self.get_stack_size() - offset
+    }
+
+    fn calc_offset(&self, val: &StackValType) -> u32 {
+        match val {
+            StackValType::Argument { offset } => self.calc_offset_arg(*offset),
+            StackValType::LocalVar { offset, .. } => self.calc_offset_local(*offset),
+        }
     }
 }
 
@@ -188,38 +221,28 @@ pub struct GlobalScope {
 
 impl GlobalScope {
     fn get(&self, name: Identifier) -> ValidationResult<&GlobalVal> {
-        self.vars.get(&name.data).ok_or(ValidationError::new(
-            ValidationErrorKind::UndefinedIdent,
-            name.loc,
-        ))
+        self.vars
+            .get(&name.data)
+            .ok_or(ValidationError::UndefinedIdent(name.loc))
     }
 
     fn get_fn(&self, name: Identifier) -> ValidationResult<&FunctionArgs> {
         match self.get(name)? {
             GlobalVal::Fnc(args) => Ok(args),
-            GlobalVal::Val(_) => Err(ValidationError::new(
-                ValidationErrorKind::NotAFunc,
-                name.loc,
-            )),
+            GlobalVal::Val(_) => Err(ValidationError::NotAFunc(name.loc)),
         }
     }
 
     fn get_val(&self, name: Identifier) -> ValidationResult<&LocatedValue> {
         match self.get(name)? {
             GlobalVal::Val(args) => Ok(args),
-            GlobalVal::Fnc(_) => Err(ValidationError::new(
-                ValidationErrorKind::FuncInExpr,
-                name.loc,
-            )),
+            GlobalVal::Fnc(_) => Err(ValidationError::FuncInExpr(name.loc)),
         }
     }
 
     pub fn insert_mem(&mut self, mem: &MemVar) -> ValidationResult<()> {
         if mem.var.field_type.data.indirection == 0 {
-            return Err(ValidationError::new(
-                ValidationErrorKind::InvalidMemVarType,
-                mem.var.field_type.loc,
-            ));
+            return Err(ValidationError::InvalidMemVarType(mem.var.field_type.loc));
         }
         self.vars.insert(
             mem.var.name.data,
@@ -257,6 +280,10 @@ impl<'a> Scope<'a> {
         Scope { local, global }
     }
 
+    pub fn get_arg_addr() -> ValidationResult<LocatedValue> {
+        unimplemented!()
+    }
+
     pub fn get_var(&self, name: Identifier) -> ValidationResult<LocatedValue> {
         self.local.get_var(name, self.global)
     }
@@ -265,17 +292,26 @@ impl<'a> Scope<'a> {
         self.local.get_fn(name, &self.global)
     }
 
+    /// Prepare the stack for the args to be pushed into it
+    pub fn init_arg_stack(&self, b: &mut MipsBuilder) {
+        b.const_word(self.local.get_arg_stack_size(), Register::T0);
+        b.sub_i32(Register::StackPtr, Register::StackPtr, Register::T0);
+    }
+
+    /// Allocate enough space for the return address and local variables
     pub fn init_stack(&self, b: &mut MipsBuilder) -> ValidationResult<()> {
-        b.const_word(self.local.get_stack_size(), Register::T0);
+        b.const_word(self.local.get_local_stack_size(), Register::T0);
         b.sub_i32(Register::StackPtr, Register::StackPtr, Register::T0);
         b.save_word(Register::ReturnAddr, self.local.get_ra_stack_loc());
         for val in self.local.vars.values() {
-            codegen_init_var(
-                b,
-                val.val_type.clone(),
-                &val.init_val,
-                self.local.calc_offset(val.offset) as i32,
-            )?;
+            if let StackValType::LocalVar {
+                offset,
+                init_val: Some(init),
+            } = &val.data
+            {
+                let var_offset = self.local.calc_offset_local(*offset) as i32;
+                codegen_init_var(b, val.val_type.clone(), init, var_offset)?;
+            }
         }
         Ok(())
     }

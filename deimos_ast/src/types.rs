@@ -29,22 +29,6 @@ pub enum DeclType {
     },
 }
 
-impl DeclType {
-    pub fn get_param_type(&self) -> Located<ParamType> {
-        match self {
-            Self::Param(p) => p.clone(),
-            Self::Array {
-                array_type,
-                size: _,
-            } => {
-                let mut param_type = array_type.clone();
-                param_type.data.indirection += 1;
-                param_type
-            }
-        }
-    }
-}
-
 impl From<Located<ParamType>> for DeclType {
     fn from(value: Located<ParamType>) -> Self {
         DeclType::Param(value)

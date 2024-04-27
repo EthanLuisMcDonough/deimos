@@ -1,8 +1,4 @@
-pub trait GenericRegister: std::fmt::Display {
-    fn str(&self) -> &'static str;
-}
-
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug, Eq, Hash)]
 pub enum Register {
     Zero,
     V0,
@@ -41,7 +37,7 @@ impl std::fmt::Display for Register {
     }
 }
 
-impl GenericRegister for Register {
+impl Register {
     fn str(&self) -> &'static str {
         match self {
             Self::Zero => "$zero",
@@ -77,6 +73,7 @@ impl GenericRegister for Register {
     }
 }
 
+#[derive(PartialEq, Clone, Copy, Debug, Eq, Hash)]
 pub enum FloatRegister {
     F0,
     F1,
@@ -118,7 +115,7 @@ impl std::fmt::Display for FloatRegister {
     }
 }
 
-impl GenericRegister for FloatRegister {
+impl FloatRegister {
     fn str(&self) -> &'static str {
         match self {
             Self::F0 => "$f0",
@@ -153,6 +150,42 @@ impl GenericRegister for FloatRegister {
             Self::F29 => "$f29",
             Self::F30 => "$f30",
             Self::F31 => "$f31",
+        }
+    }
+}
+
+#[derive(PartialEq, Clone, Copy, Debug, Eq, Hash)]
+pub enum GenericRegister {
+    Float(FloatRegister),
+    Regular(Register),
+}
+
+impl GenericRegister {
+    pub fn str(&self) -> &'static str {
+        match self {
+            Self::Regular(r) => r.str(),
+            Self::Float(fl) => fl.str(),
+        }
+    }
+}
+
+impl From<FloatRegister> for GenericRegister {
+    fn from(value: FloatRegister) -> Self {
+        Self::Float(value)
+    }
+}
+
+impl From<Register> for GenericRegister {
+    fn from(value: Register) -> Self {
+        Self::Regular(value)
+    }
+}
+
+impl std::fmt::Display for GenericRegister {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Regular(r) => write!(f, "{}", r),
+            Self::Float(fl) => write!(f, "{}", fl),
         }
     }
 }

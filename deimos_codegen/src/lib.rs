@@ -3,16 +3,17 @@ use mips_builder::{DataDef, MipsBuilder, Register};
 
 mod const_expr;
 mod error;
+mod expr;
 mod names;
 mod scope;
-mod expr;
+mod stmt;
 
 use names::*;
 
 use error::ValidationResult;
 use scope::{GlobalScope, LocalScope, Scope};
 
-use crate::error::ValidationError;
+use crate::{error::ValidationError, expr::RegisterBank};
 
 fn codegen_sub(b: &mut MipsBuilder, sub: &Function, scope: &Scope) -> ValidationResult<()> {
     b.new_block(get_fn_name(sub.name.data));
@@ -30,14 +31,7 @@ fn codegen_sub(b: &mut MipsBuilder, sub: &Function, scope: &Scope) -> Validation
 
 fn codegen_block(b: &mut MipsBuilder, block: &Block, scope: &Scope) -> ValidationResult<()> {
     for stmt in block {
-        codegen_stmt(b, &stmt.data, scope)?;
-    }
-    Ok(())
-}
-
-fn codegen_stmt(b: &mut MipsBuilder, stmt: &Statement, s: &Scope) -> ValidationResult<()> {
-    match stmt {
-        _ => {}
+        stmt::codegen_stmt(b, &stmt.data, scope)?;
     }
     Ok(())
 }

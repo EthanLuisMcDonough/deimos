@@ -65,10 +65,7 @@ fn init_static_param(
                 ..
             }),
         ) => Ok(DataDirective::Asciiz(bank.strings[*s].clone())),
-        (_, _, Some(Located { loc, .. })) => Err(ValidationError::new(
-            ValidationErrorKind::InvalidStaticVar,
-            *loc,
-        )),
+        (_, _, Some(Located { loc, .. })) => Err(ValidationError::InvalidStaticVar(*loc)),
     }
 }
 
@@ -77,10 +74,7 @@ fn expect_f32(val: Located<PrimitiveValue>) -> ValidationResult<f32> {
         PrimitiveValue::Float(f) => Ok(f),
         PrimitiveValue::Int(i) => Ok(i as f32),
         PrimitiveValue::Unsigned(i) => Ok(i as f32),
-        _ => Err(ValidationError::new(
-            ValidationErrorKind::MismatchedType,
-            val.loc,
-        )),
+        _ => Err(ValidationError::MismatchedType(val.loc)),
     }
 }
 
@@ -88,10 +82,7 @@ fn expect_word(val: Located<PrimitiveValue>) -> ValidationResult<u32> {
     match val.data {
         PrimitiveValue::Int(i) => Ok(i as u32),
         PrimitiveValue::Unsigned(i) => Ok(i),
-        _ => Err(ValidationError::new(
-            ValidationErrorKind::MismatchedType,
-            val.loc,
-        )),
+        _ => Err(ValidationError::MismatchedType(val.loc)),
     }
 }
 
@@ -99,20 +90,14 @@ fn expect_byte(val: Located<PrimitiveValue>) -> ValidationResult<u8> {
     match val.data {
         PrimitiveValue::Int(i) if i >= 0 && i < 256 => Ok(i as u8),
         PrimitiveValue::Unsigned(i) if i < 256 => Ok(i as u8),
-        _ => Err(ValidationError::new(
-            ValidationErrorKind::MismatchedType,
-            val.loc,
-        )),
+        _ => Err(ValidationError::MismatchedType(val.loc)),
     }
 }
 
 fn expect_string(val: Located<PrimitiveValue>) -> ValidationResult<usize> {
     match val.data {
         PrimitiveValue::String(s) => Ok(s),
-        _ => Err(ValidationError::new(
-            ValidationErrorKind::MismatchedType,
-            val.loc,
-        )),
+        _ => Err(ValidationError::MismatchedType(val.loc)),
     }
 }
 
@@ -187,10 +172,7 @@ fn init_static_array(
             DataDirective::Asciiz(bank.strings[*s].clone())
         }
         (_, _, Some(Located { loc, .. })) => {
-            return Err(ValidationError::new(
-                ValidationErrorKind::InvalidStaticVar,
-                *loc,
-            ));
+            return Err(ValidationError::InvalidStaticVar(*loc));
         }
     };
     Ok(directive)
@@ -217,45 +199,28 @@ pub fn codegen_init_static(
 pub fn codegen_init_var(
     b: &mut MipsBuilder,
     var_type: DeclType,
-    init: &Option<Located<InitValue>>,
+    init: &Located<InitValue>,
     stack_offset: i32,
 ) -> ValidationResult<()> {
-    match (var_type, init) {
-        (
-            DeclType::Param(p),
-            Some(Located {
-                data: InitValue::Primitive(init),
-                loc,
-            }),
-        ) => stack_init_param(b, &p.data, Some(Located::new(*init, *loc)), stack_offset),
-        (DeclType::Param(p), None) => stack_init_param(b, &p.data, None, stack_offset),
-        (
-            DeclType::Array { array_type, size },
-            Some(Located {
-                data: InitValue::List(list),
-                loc,
-            }),
-        ) => stack_init_array(
+    match (var_type, &init.data) {
+        (DeclType::Param(p), InitValue::Primitive(init_val)) => {
+            stack_init_param(b, &p.data, Located::new(*init_val, init.loc), stack_offset)
+        }
+        (DeclType::Array { array_type, size }, InitValue::List(list)) => stack_init_array(
             b,
             &array_type.data,
             size.data,
-            Some(Located::new(list, *loc)),
+            Some(Located::new(list, init.loc)),
             stack_offset,
         ),
-        (DeclType::Array { array_type, size }, None) => {
-            stack_init_array(b, &array_type.data, size.data, None, stack_offset)
-        }
-        (_, Some(Located { loc, .. })) => Err(ValidationError::new(
-            ValidationErrorKind::InvalidLocalInit,
-            *loc,
-        )),
+        _ => Err(ValidationError::InvalidLocalInit(init.loc)),
     }
 }
 
 fn stack_init_param(
     b: &mut MipsBuilder,
     var_type: &ParamType,
-    init: Option<Located<PrimitiveValue>>,
+    init: Located<PrimitiveValue>,
     stack_offset: i32,
 ) -> ValidationResult<()> {
     let address = MipsAddress::RegisterOffset {
@@ -264,38 +229,28 @@ fn stack_init_param(
     };
     match var_type.param_type.data {
         PrimitiveType::F32 if var_type.indirection == 0 => {
-            let val = init.map(expect_f32).transpose()?.unwrap_or_default();
+            let val = expect_f32(init)?;
             b.const_f32(val, FloatRegister::F4);
             b.save_f32(FloatRegister::F4, address);
         }
         PrimitiveType::I32 | PrimitiveType::U32 if var_type.indirection == 0 => {
-            let val = init.map(expect_word).transpose()?.unwrap_or_default();
+            let val = expect_word(init)?;
             b.const_word(val, Register::T0);
             b.save_word(Register::T0, address);
         }
         PrimitiveType::U8 if var_type.indirection == 0 => {
-            let val = init.map(expect_byte).transpose()?.unwrap_or_default();
+            let val = expect_byte(init)?;
             b.const_word(val as u32, Register::T0);
             b.save_byte(Register::T0, address);
         }
         PrimitiveType::U8 if var_type.indirection == 1 => {
-            if let Some(str_id) = init.map(expect_string).transpose()? {
-                let str_name = get_str_name(str_id);
-                b.load_addr(Register::T0, MipsAddress::Label(str_name.into()));
-                b.save_word(Register::T0, address);
-            } else {
-                b.save_word(Register::Zero, address);
-            }
+            let str_id = expect_string(init)?;
+            let str_name = get_str_name(str_id);
+            b.load_addr(Register::T0, MipsAddress::Label(str_name.into()));
+            b.save_word(Register::T0, address);
         }
         _ => {
-            if let Some(Located { loc, .. }) = init {
-                return Err(ValidationError::new(
-                    ValidationErrorKind::InvalidLocalInit,
-                    loc,
-                ));
-            } else {
-                b.save_word(Register::Zero, address);
-            }
+            return Err(ValidationError::InvalidLocalInit(init.loc));
         }
     };
     Ok(())
@@ -373,10 +328,7 @@ fn stack_init_array(
             })?;
         }
         (_, _, Some(Located { loc, .. })) => {
-            return Err(ValidationError::new(
-                ValidationErrorKind::InvalidLocalInit,
-                loc,
-            ));
+            return Err(ValidationError::InvalidLocalInit(loc));
         }
     }
     Ok(())

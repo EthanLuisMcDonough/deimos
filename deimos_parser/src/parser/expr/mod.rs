@@ -96,7 +96,7 @@ pub fn parse_expression(mut tokens: TokenIter) -> ParseResult<Expression> {
     stack.get_val()
 }
 
-pub fn parse_rvalue(mut tokens: TokenIter) -> ParseResult<RValue> {
+pub fn parse_rvalue(mut tokens: TokenIter) -> ParseResult<Located<RValue>> {
     let start_loc = tokens.peek().map(|t| t.loc).ok_or(tokens.eof_err())?;
     let expr = parse_expression(tokens)?;
     match expr {
@@ -106,8 +106,8 @@ pub fn parse_rvalue(mut tokens: TokenIter) -> ParseResult<RValue> {
                 data: UnaryOp::Deref,
                 ..
             },
-        } => Ok(RValue::Deref(*operand)),
-        Expression::Identifier(ident) => Ok(RValue::Identifier(ident)),
+        } => Ok(Located::new(RValue::Deref(*operand), start_loc)),
+        Expression::Identifier(ident) => Ok(Located::new(RValue::Identifier(ident), start_loc)),
         Expression::Binary {
             left,
             right,
@@ -116,10 +116,13 @@ pub fn parse_rvalue(mut tokens: TokenIter) -> ParseResult<RValue> {
                     data: BinaryOp::IndexAccess,
                     ..
                 },
-        } => Ok(RValue::Index {
-            array: *left,
-            value: *right,
-        }),
+        } => Ok(Located::new(
+            RValue::Index {
+                array: *left,
+                value: *right,
+            },
+            start_loc,
+        )),
         _ => Err(ParseError::ExpectedRValue(start_loc)),
     }
 }

@@ -98,6 +98,12 @@ impl<'a> From<&'a str> for MipsAddress<'a> {
     }
 }
 
+impl<'a> From<String> for MipsAddress<'a> {
+    fn from(value: String) -> Self {
+        Self::Label(Cow::Owned(value))
+    }
+}
+
 impl<'a> From<Register> for MipsAddress<'a> {
     fn from(value: Register) -> Self {
         Self::Register(value)
@@ -283,20 +289,29 @@ impl MipsBuilder {
             block.instructions.push(text);
         }
     }
-    fn instr2(&mut self, t: &str, a: impl GenericRegister, b: impl GenericRegister) {
-        self.instr(format!("{} {}, {}", t, a, b));
+    fn instr2(&mut self, t: &str, a: impl Into<GenericRegister>, b: impl Into<GenericRegister>) {
+        self.instr(format!("{} {}, {}", t, a.into(), b.into()));
+    }
+    fn instr2_const(
+        &mut self,
+        t: &str,
+        a: impl Into<GenericRegister>,
+        b: impl Into<GenericRegister>,
+        val: impl Display,
+    ) {
+        self.instr(format!("{} {}, {}, {}", t, a.into(), b.into(), val));
     }
     fn instr3(
         &mut self,
         t: &str,
-        a: impl GenericRegister,
-        b: impl GenericRegister,
-        c: impl GenericRegister,
+        a: impl Into<GenericRegister>,
+        b: impl Into<GenericRegister>,
+        c: impl Into<GenericRegister>,
     ) {
-        self.instr(format!("{} {}, {}, {}", t, a, b, c));
+        self.instr(format!("{} {}, {}, {}", t, a.into(), b.into(), c.into()));
     }
-    fn addr_instr<T: GenericRegister>(&mut self, t: &str, reg: T, loc: MipsAddress) {
-        self.instr(format!("{} {}, {}", t, reg, loc));
+    fn addr_instr(&mut self, t: &str, reg: impl Into<GenericRegister>, loc: MipsAddress) {
+        self.instr(format!("{} {}, {}", t, reg.into(), loc));
     }
     fn branch_instr(&mut self, instr: &str, reg1: Register, reg2: Register, label: &str) {
         self.instr(format!("{} {}, {}, {}", instr, reg1, reg2, label));
@@ -327,8 +342,8 @@ impl MipsBuilder {
     pub fn load_f32<'a>(&mut self, dest: FloatRegister, loc: impl Into<MipsAddress<'a>>) {
         self.addr_instr("l.s", dest, loc.into());
     }
-    pub fn save_f32<'a>(&mut self, dest: FloatRegister, loc: impl Into<MipsAddress<'a>>) {
-        self.addr_instr("s.s", dest, loc.into());
+    pub fn save_f32<'a>(&mut self, source: FloatRegister, loc: impl Into<MipsAddress<'a>>) {
+        self.addr_instr("s.s", source, loc.into());
     }
 
     pub fn load_addr<'a>(&mut self, dest: Register, addr: impl Into<MipsAddress<'a>>) {
@@ -380,6 +395,13 @@ impl MipsBuilder {
     pub fn mod_i32(&mut self, dest: Register, source1: Register, source2: Register) {
         self.instr2("div", source1, source2);
         self.move_from_hi(dest);
+    }
+
+    pub fn shift_logical_left(&mut self, dest: Register, source: Register, value: u32) {
+        self.instr2_const("sll", dest, source, value);
+    }
+    pub fn add_const_i32(&mut self, dest: Register, source: Register, val: i32) {
+        self.instr2_const("addi", dest, source, val);
     }
 
     pub fn set_eq(&mut self, dest: Register, source1: Register, source2: Register) {

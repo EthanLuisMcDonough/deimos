@@ -32,7 +32,7 @@ pub enum ControlBreak {
 
 #[derive(Debug)]
 pub struct Assignment {
-    pub rvalue: RValue,
+    pub rvalue: Located<RValue>,
     pub lvalue: Expression,
 }
 
