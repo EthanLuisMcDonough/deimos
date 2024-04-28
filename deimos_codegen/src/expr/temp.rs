@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, fmt::Debug};
 
 use deimos_ast::*;
 use mips_builder::{FloatRegister, GenericRegister, MipsAddress, MipsBuilder, Register};

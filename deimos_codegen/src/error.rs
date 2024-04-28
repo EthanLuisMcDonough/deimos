@@ -1,7 +1,9 @@
-use deimos_ast::{BinaryOp, Location, UnaryOp};
+use deimos_ast::{BinaryOp, Identifier, Location, Reg, UnaryOp};
 use mips_builder::{FloatRegister, Register};
 use std::error::Error;
 use std::fmt::Display;
+
+use crate::expr::temp::ExprType;
 
 #[derive(Debug)]
 pub enum ValidationError {
@@ -22,6 +24,9 @@ pub enum ValidationError {
     MemReference(Location),
     InvalidRValType(Location),
     InvalidLValType(Location),
+    InvalidRegTransfer(Identifier, Reg),
+    InvalidArgCount(Location),
+    InvalidArgType(Location, usize, ExprType),
 }
 impl Display for ValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -88,6 +93,25 @@ impl Display for ValidationError {
             Self::InvalidLValType(loc) => {
                 write!(f, "LValue at {} has mismatching type", loc)
             }
+            Self::InvalidRegTransfer(ident, reg) => {
+                write!(
+                    f,
+                    "Ident at {} doesn't correspond with {:?}",
+                    ident.loc, reg
+                )
+            }
+            Self::InvalidArgCount(loc) => {
+                write!(
+                    f,
+                    "Function called with incorrect number of arguments at {}",
+                    loc
+                )
+            }
+            Self::InvalidArgType(loc, index, expected) => write!(
+                f,
+                "Invalid argument type at position {} in call at {}. Expected {:?}",
+                index, loc, expected,
+            ),
         }
     }
 }

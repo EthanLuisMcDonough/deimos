@@ -3,19 +3,11 @@ use deimos_ast::*;
 use mips_builder::{MipsAddress, MipsBuilder, Register};
 use std::collections::HashMap;
 
-/// Calculate size of scalar type
-fn get_ref_size(p: &ParamType) -> u32 {
-    match p.param_type.data {
-        PrimitiveType::U8 if p.indirection == 0 => 1,
-        _ => 4,
-    }
-}
-
 /// Calculate size of array type
 fn get_def_size(d: &DeclType) -> u32 {
     match d {
-        DeclType::Param(p) => get_ref_size(&p.data),
-        DeclType::Array { array_type, size } => get_ref_size(&array_type.data) * size.data,
+        DeclType::Param(_) => 4,
+        DeclType::Array { size, .. } => 4 * size.data,
     }
 }
 
@@ -153,15 +145,15 @@ impl LocalScope {
         }
     }
 
-    fn get_local_var(&self, name: Identifier) -> Option<LocatedValue> {
+    fn get_local_var(&self, name: Identifier, stack_shift: u32) -> Option<LocatedValue> {
         self.vars.get(&name.data).map(|val| LocatedValue {
-            loc: ValLocation::Stack(self.calc_offset(&val.data)),
+            loc: ValLocation::Stack(self.calc_offset(&val.data) + stack_shift),
             val: val.val_type.clone(),
         })
     }
 
-    fn get_var(&self, name: Identifier, global: &GlobalScope) -> ValidationResult<LocatedValue> {
-        self.get_local_var(name)
+    fn get_var(&self, name: Identifier, global: &GlobalScope, stack_shift: u32) -> ValidationResult<LocatedValue> {
+        self.get_local_var(name, stack_shift)
             .map(Ok)
             .unwrap_or_else(|| global.get_val(name).cloned())
     }
@@ -198,6 +190,7 @@ impl LocalScope {
     }
 
     fn calc_offset_arg(&self, offset: u32) -> u32 {
+        println!("{}", self.get_stack_size() - offset);
         self.get_stack_size() - offset
     }
 
@@ -273,35 +266,38 @@ impl GlobalScope {
 pub struct Scope<'a> {
     local: &'a LocalScope,
     global: &'a GlobalScope,
+    stack_shift: u32,
 }
 
 impl<'a> Scope<'a> {
     pub fn new(local: &'a LocalScope, global: &'a GlobalScope) -> Scope<'a> {
-        Scope { local, global }
+        Scope {
+            local,
+            global,
+            stack_shift: 0,
+        }
     }
 
-    pub fn get_arg_addr() -> ValidationResult<LocatedValue> {
-        unimplemented!()
+    pub fn shift_stack(&self, shift: u32) -> Scope<'a> {
+        Scope {
+            local: self.local,
+            global: self.global,
+            stack_shift: self.stack_shift + shift,
+        }
     }
 
     pub fn get_var(&self, name: Identifier) -> ValidationResult<LocatedValue> {
-        self.local.get_var(name, self.global)
+        self.local.get_var(name, self.global, self.stack_shift)
     }
 
     pub fn get_fn(&self, name: Identifier) -> ValidationResult<&'a FunctionArgs> {
         self.local.get_fn(name, &self.global)
     }
 
-    /// Prepare the stack for the args to be pushed into it
-    pub fn init_arg_stack(&self, b: &mut MipsBuilder) {
-        b.const_word(self.local.get_arg_stack_size(), Register::T0);
-        b.sub_i32(Register::StackPtr, Register::StackPtr, Register::T0);
-    }
-
     /// Allocate enough space for the return address and local variables
     pub fn init_stack(&self, b: &mut MipsBuilder) -> ValidationResult<()> {
-        b.const_word(self.local.get_local_stack_size(), Register::T0);
-        b.sub_i32(Register::StackPtr, Register::StackPtr, Register::T0);
+        let neg_stack = -(self.local.get_local_stack_size() as i32);
+        b.add_const_i32(Register::StackPtr, Register::StackPtr, neg_stack);
         for val in self.local.vars.values() {
             if let StackValType::LocalVar {
                 offset,

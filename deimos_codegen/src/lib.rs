@@ -13,12 +13,17 @@ use names::*;
 use error::ValidationResult;
 use scope::{GlobalScope, LocalScope, Scope};
 
-fn codegen_sub(b: &mut MipsBuilder, sub: &Function, scope: &Scope) -> ValidationResult<()> {
+fn codegen_sub(
+    b: &mut MipsBuilder,
+    sub: &Function,
+    scope: &Scope,
+    p: &Program,
+) -> ValidationResult<()> {
     b.new_block(get_fn_name(sub.name.data));
     scope.init_stack(b)?;
     scope.init_stack_ptr(b);
 
-    codegen_block(b, &sub.block.block, scope)?;
+    codegen_block(b, &sub.block.block, scope, p)?;
 
     b.new_block(get_fn_end(sub.name.data));
     scope.restore_ra(b);
@@ -28,9 +33,14 @@ fn codegen_sub(b: &mut MipsBuilder, sub: &Function, scope: &Scope) -> Validation
     Ok(())
 }
 
-fn codegen_block(b: &mut MipsBuilder, block: &Block, scope: &Scope) -> ValidationResult<()> {
+fn codegen_block(
+    b: &mut MipsBuilder,
+    block: &Block,
+    scope: &Scope,
+    p: &Program,
+) -> ValidationResult<()> {
     for stmt in block {
-        stmt::codegen_stmt(b, &stmt.data, scope)?;
+        stmt::codegen_stmt(b, &stmt.data, scope, p)?;
     }
     Ok(())
 }
@@ -39,7 +49,7 @@ fn codegen_main(b: &mut MipsBuilder, global: &GlobalScope, p: &Program) -> Valid
     let local = LocalScope::from_program(&p.body)?;
     let scope = Scope::new(&local, global);
     scope.init_stack(b)?;
-    codegen_block(b, &p.body.block, &scope)
+    codegen_block(b, &p.body.block, &scope, p)
 }
 
 pub fn codegen(p: &Program) -> ValidationResult<String> {
@@ -76,7 +86,7 @@ pub fn codegen(p: &Program) -> ValidationResult<String> {
 
     for (fnc, local) in p.fns.iter().zip(fnc_scopes.iter()) {
         let scope = Scope::new(&local, &global);
-        codegen_sub(&mut codegen, fnc, &scope)?;
+        codegen_sub(&mut codegen, fnc, &scope, p)?;
     }
 
     Ok(codegen.codegen())

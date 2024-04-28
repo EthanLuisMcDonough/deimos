@@ -284,7 +284,7 @@ impl MipsBuilder {
         });
     }
 
-    fn instr(&mut self, text: String) {
+    pub fn instr(&mut self, text: String) {
         if let Some(block) = self.blocks.last_mut() {
             block.instructions.push(text);
         }

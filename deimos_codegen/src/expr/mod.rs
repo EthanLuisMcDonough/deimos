@@ -7,7 +7,7 @@ mod binary;
 mod logic;
 pub mod print;
 pub mod rvalue;
-mod temp;
+pub mod temp;
 mod unary;
 mod value;
 

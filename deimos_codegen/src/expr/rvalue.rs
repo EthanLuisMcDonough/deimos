@@ -43,7 +43,7 @@ pub fn codegen_assignment(
     }
 
     match rval.type_tuple() {
-        (PrimitiveType::F32, 0) => {
+        (PrimitiveType::F32, 1) => {
             let rval_reg = rval.register.get_word()?;
             let expr_reg = expr_val.register.get_float()?;
             rval_reg.use_reg(b, 0, AccessMode::Read, |b, fr| {
@@ -52,7 +52,7 @@ pub fn codegen_assignment(
                 })
             });
         }
-        (PrimitiveType::U8, 0) => {
+        (PrimitiveType::U8, 1) => {
             let rval_reg = rval.register.get_word()?;
             let expr_reg = expr_val.register.get_word()?;
             rval_reg.use_reg(b, 0, AccessMode::Read, |b, fr| {

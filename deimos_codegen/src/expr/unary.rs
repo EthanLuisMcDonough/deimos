@@ -52,6 +52,14 @@ pub fn codegen_deref(
             reg_bank.free_reg(expr.register);
             Ok(ExprTemp::new(float_reg, PrimitiveType::F32))
         }
+        (PrimitiveType::U8, 1) => {
+            expr.register
+                .get_word()?
+                .use_reg_byte(b, 0, AccessMode::ReadWrite, |b, r| {
+                    b.load_byte(r, r);
+                });
+            Ok(ExprTemp::new(expr.register, PrimitiveType::U8))
+        }
         (_, 1..) => {
             expr.register
                 .get_word()?
