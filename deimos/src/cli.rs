@@ -5,6 +5,7 @@ use std::fs;
 use std::path::Path;
 
 const DEFAULT_OUTNAME: &'static str = "out.asm";
+static LIB_SOURCE: &'static str = include_str!("lib.dei");
 
 #[derive(Debug)]
 pub enum CliArgError {
@@ -85,7 +86,8 @@ impl CliArgs {
     }
 
     pub fn invoke(self) -> Result<(), Box<dyn Error>> {
-        let source = fs::read_to_string(self.source)?;
+        let mut source = fs::read_to_string(self.source)?;
+        source.push_str(&LIB_SOURCE);
 
         let tokens = deimos_parser::lex(&source)?;
         if let Some(DebugStage::Lex) = self.debug_stage {

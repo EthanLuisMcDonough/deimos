@@ -1,0 +1,140 @@
+
+
+sub get_argc(o: &u32) {
+    let c: u32;
+    asm {
+        "lw $v0, ARGC_GLOBAL";
+        out: ($v0: c);
+    }
+    *o = c;
+}
+
+sub get_argv(o: &&&u8) {
+    let argv_addr: &&u8;
+    asm {
+        "lw $v0, ARGV_GLOBAL";
+        out: ($v0: argv_addr);
+    }
+    *o = argv_addr;
+}
+
+sub open_file(filename: &u8, flags: u32, mode: u32, fd_o: &u32) {
+    let fd: u32;
+    syscall (13) {
+        in: ($a0: filename, $a1: flags, $a2: mode);
+        out: ($v0: fd);
+    }
+    *fd_o = fd;
+}
+
+sub read_file(fd: u32, buffer: &u8, max_chars: u32, chars_read: &u32) {
+    let cr: u32;
+    syscall (14) {
+        in: ($a0: fd, $a1: buffer, $a2: max_chars);
+        out: ($v0: cr);
+    }
+    *chars_read = cr;
+}
+
+sub write_file(fd: u32, buffer: &u8, len: u32, chars_written: &u32) {
+    let cw: u32;
+    syscall (15) {
+        in: ($a0: fd, $a1: buffer, $a2: len);
+        out: ($v0: cw);
+    }
+    *chars_written = cw;
+}
+
+sub close_file(fd: u32) {
+    syscall (16) {
+        in: ($a0: fd);
+    }
+}
+
+
+sub exit(code: i32) {
+    syscall (17) {
+        in: ($a0: code);
+    }
+}
+
+sub read_i32(o: &i32) {
+    let result: i32;
+    syscall (5) {
+        in: ($v0: result);
+    }
+    *o = result;
+}
+
+sub read_f32(o: &f32) {
+    let result: f32;
+    syscall (6) {
+        out: ($f0: result);
+    }
+    *o = result;
+}
+
+sub read_u8(o: &u8) {
+    let result: u8;
+    syscall (12) {
+        out: ($v0: result);
+    }
+    *o = result;
+}
+
+sub mars_time(low: &u32, hi: &u32) {
+    let l: u32, h: u32;
+    syscall (30) {
+        out: ($a0: l, $a1: h);
+    }
+    *low = l;
+    *hi = h;
+}
+
+sub mars_sleep(time: u32) {
+    syscall (32) {
+        in: ($a0: time);
+    }
+}
+
+sub mars_midi_async(
+    pitch: u32, duration: u32,
+    instrument: u32, volume: u32
+) {
+    syscall (31) {
+        in: ($a0: pitch, $a1: duration, $a2: instrument, $a3: volume);
+    }
+}
+
+sub mars_midi_sync(
+    pitch: u32, duration: u32,
+    instrument: u32, volume: u32
+) {
+    syscall (33) {
+        in: ($a0: pitch, $a1: duration, $a2: instrument, $a3: volume);
+    }
+}
+
+sub mars_set_rng_seed(rng_id: u32, seed: u32) {
+    syscall (40) {
+        in: ($a0: rng_id, $a1: seed);
+    }
+}
+
+sub mars_get_rng_i32(rng_id: u32, i: &i32) {
+    let v: i32;
+    syscall (41) {
+        in: ($a0: rng_id);
+        out: ($a0: v);
+    }
+    *i = v;
+}
+
+sub mars_get_rng_f32(rng_id: u32, i: &f32) {
+    let v: f32;
+    syscall (43) {
+        in: ($a0: rng_id);
+        out: ($f0: v);
+    }
+    *i = v;
+}

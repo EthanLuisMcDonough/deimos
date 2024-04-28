@@ -7,6 +7,23 @@ use std::collections::HashMap;
 fn get_def_size(d: &DeclType) -> u32 {
     match d {
         DeclType::Param(_) => 4,
+        DeclType::Array {
+            size,
+            array_type:
+                Located {
+                    data:
+                        ParamType {
+                            param_type:
+                                Located {
+                                    data: PrimitiveType::U8,
+                                    ..
+                                },
+                            ..
+                        },
+                    ..
+                },
+            ..
+        } => size.data.div_ceil(4) * 4,
         DeclType::Array { size, .. } => 4 * size.data,
     }
 }
@@ -15,11 +32,13 @@ fn get_def_size(d: &DeclType) -> u32 {
 /// is the inverse of the working stack offset in that it represents
 /// the running size of the stack as variables are inserted. Subtract
 /// this value from the stack size and you'll get the actual offset.
+#[derive(Debug)]
 struct StackVal {
     val_type: DeclType,
     data: StackValType,
 }
 
+#[derive(Debug)]
 enum StackValType {
     LocalVar {
         offset: u32,

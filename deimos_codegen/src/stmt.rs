@@ -12,6 +12,7 @@ use super::error::{ValidationError, ValidationResult};
 use super::expr::rvalue::codegen_assignment;
 use super::scope::{ConstructCounter, Scope};
 
+/// Codegen for entire block
 pub fn codegen_block(
     b: &mut MipsBuilder,
     block: &Block,
@@ -25,6 +26,7 @@ pub fn codegen_block(
     Ok(())
 }
 
+/// Codegen for generic statement
 pub fn codegen_stmt(
     b: &mut MipsBuilder,
     stmt: &Statement,
@@ -38,12 +40,13 @@ pub fn codegen_stmt(
         Statement::Asm(asm) => codegen_asm(b, asm, s, &p.bank),
         Statement::ControlBreak(_) => unimplemented!("return/continue/break not implemented"),
         Statement::Syscall(syscall) => codegen_syscall(b, syscall, s),
-        Statement::LogicChain(l) => codegen_logic_chain(b, l, s, c),
+        Statement::LogicChain(l) => codegen_logic_chain(b, l, s, p, c),
         Statement::While(w) => codegen_while(b, w, s, p, c),
         Statement::Print(p) => codegen_print(b, p, s),
     }
 }
 
+/// Codegen for print statement
 fn codegen_print(b: &mut MipsBuilder, print: &Print, s: &Scope) -> ValidationResult<()> {
     let mut bank = RegisterBank::default();
     for p_expr in &print.args {
@@ -54,12 +57,14 @@ fn codegen_print(b: &mut MipsBuilder, print: &Print, s: &Scope) -> ValidationRes
     Ok(())
 }
 
+/// Codegen for syscall statement
 fn codegen_syscall(b: &mut MipsBuilder, syscall: &Syscall, s: &Scope) -> ValidationResult<()> {
     codegen_regload_before(b, &syscall.map.in_values, s)?;
     b.add_syscall(syscall.syscall_id.data as u8);
     codegen_regload_after(b, &syscall.map.out_values, s)
 }
 
+/// Codegen for ASM block
 fn codegen_asm(
     b: &mut MipsBuilder,
     asm: &AsmBlock,
@@ -73,6 +78,7 @@ fn codegen_asm(
     codegen_regload_after(b, &asm.map.out_values, s)
 }
 
+/// Map AST node registers to real codegen registers
 fn cvt_reg(value: Reg) -> GenericRegister {
     match value {
         Reg::A0 => GenericRegister::Regular(Register::A0),
@@ -85,6 +91,7 @@ fn cvt_reg(value: Reg) -> GenericRegister {
     }
 }
 
+/// Scaffold for regload operations.
 fn codegen_regload_apply(
     b: &mut MipsBuilder,
     vars: &RegisterMap,
@@ -152,6 +159,8 @@ fn codegen_regload_apply(
     Ok(())
 }
 
+/// Move user defined variables into specific registers.
+/// This is called before asm and syscall
 fn codegen_regload_before(
     b: &mut MipsBuilder,
     vars: &RegisterMap,
@@ -173,6 +182,8 @@ fn codegen_regload_before(
     )
 }
 
+/// Move values in specific registers to user defined variables.
+/// This is called after asm and syscall
 fn codegen_regload_after(
     b: &mut MipsBuilder,
     vars: &RegisterMap,
@@ -194,6 +205,7 @@ fn codegen_regload_after(
     )
 }
 
+/// Codegen for function calls
 fn codegen_fnc_call(
     b: &mut MipsBuilder,
     invocation: &Invocation,
@@ -222,7 +234,7 @@ fn codegen_fnc_call(
             return Err(ValidationError::InvalidArgType(invoc_loc, index, arg_expr));
         }
 
-        let stack_offset = fnc.len() - (index + 1);
+        let stack_offset = (fnc.len() - (index + 1)) * 4;
         let addr = MipsAddress::RegisterOffset {
             register: Register::StackPtr,
             offset: stack_offset as i32,
@@ -280,6 +292,7 @@ fn codegen_condition(
     Ok(())
 }
 
+/// Codegen for while loops
 fn codegen_while(
     b: &mut MipsBuilder,
     loop_block: &ConditionBody,
@@ -313,30 +326,46 @@ fn codegen_logic_chain(
     b: &mut MipsBuilder,
     l: &LogicChain,
     s: &Scope,
+    p: &Program,
     c: &mut ConstructCounter,
 ) -> ValidationResult<()> {
     let if_id = c.new_if();
     let if_lbl = get_if_lbl(if_id);
+    
+    // Iterator for checking next label in logic chain
     let elif_lbls = (0..l.elifs.len())
         .map(|i| get_elif_lbl(if_id, i))
         .collect::<Vec<_>>();
     let end_lbl = get_if_end(if_id);
     let else_lbl = l.else_block.as_ref().map(|_| get_if_else(if_id));
-
-    b.new_block(if_lbl);
+    let mut lbl_iter = elif_lbls.iter().chain(else_lbl.iter());
+    let mut next_lbl = || lbl_iter.next().unwrap_or(&end_lbl);
 
     let mut bank = RegisterBank::default();
 
-    //let cur_lbl =
-    /*let next_lbl = elif_lbls.iter()
-        .chain(std::iter::once(&else_lbl));
-    let conditions = std::iter::once(&l.if_block).chain(l.elifs.iter());
+    b.new_block(if_lbl);
+    codegen_condition(b, &l.if_block.condition, s, &mut bank, next_lbl())?;
 
-    for (condition_body, next_lbl) in conditions.zip(next_lbl) {
-        //condition_body
-    }*/
+    codegen_block(b, &l.if_block.body, s, p, c)?;
+    b.branch(&end_lbl); // Go to end if body was run
 
-    //codegen_condition(b, &l.if_block.condition, s, &mut bank, )
-    //l.if_block
-    unimplemented!()
+    // Elifs
+    for (index, elif) in l.elifs.iter().enumerate() {
+        b.new_block(get_elif_lbl(if_id, index));
+        codegen_condition(b, &elif.condition, s, &mut bank, next_lbl())?;
+
+        codegen_block(b, &elif.body, s, p, c)?;
+        b.branch(&end_lbl); // Go to end if body was run
+    }
+
+    // Generate else block
+    if let Some(else_block) = &l.else_block {
+        b.new_block(get_if_else(if_id));
+        codegen_block(b, else_block, s, p, c)?;
+    }
+
+    // End of if statement
+    b.new_block(end_lbl);
+
+    Ok(())
 }

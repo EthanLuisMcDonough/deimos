@@ -253,17 +253,9 @@ pub fn codgen_logic_and(
     right: ExprTemp,
     loc: Location,
 ) -> ValidationResult<ExprTemp> {
-    arith_int_expr(
-        b,
-        reg_bank,
-        left,
-        right,
-        BinaryOp::And,
-        loc,
-        |b, r1, r2| {
-            b.and_i32(r1, r1, r2);
-        }
-    )
+    arith_int_expr(b, reg_bank, left, right, BinaryOp::And, loc, |b, r1, r2| {
+        b.and_i32(r1, r1, r2);
+    })
 }
 
 pub fn codgen_logic_or(
@@ -273,17 +265,9 @@ pub fn codgen_logic_or(
     right: ExprTemp,
     loc: Location,
 ) -> ValidationResult<ExprTemp> {
-    arith_int_expr(
-        b,
-        reg_bank,
-        left,
-        right,
-        BinaryOp::Or,
-        loc,
-        |b, r1, r2| {
-            b.or_i32(r1, r1, r2);
-        }
-    )
+    arith_int_expr(b, reg_bank, left, right, BinaryOp::Or, loc, |b, r1, r2| {
+        b.or_i32(r1, r1, r2);
+    })
 }
 
 pub fn codegen_mod(
@@ -293,17 +277,9 @@ pub fn codegen_mod(
     right: ExprTemp,
     loc: Location,
 ) -> ValidationResult<ExprTemp> {
-    arith_int_expr(
-        b,
-        reg_bank,
-        left,
-        right,
-        BinaryOp::Mod,
-        loc,
-        |b, r1, r2| {
-            b.mod_i32(r1, r1, r2);
-        }
-    )
+    arith_int_expr(b, reg_bank, left, right, BinaryOp::Mod, loc, |b, r1, r2| {
+        b.mod_i32(r1, r1, r2);
+    })
 }
 
 pub fn codegen_index_access(
