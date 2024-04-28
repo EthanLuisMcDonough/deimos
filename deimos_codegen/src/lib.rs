@@ -13,11 +13,10 @@ use names::*;
 use error::ValidationResult;
 use scope::{GlobalScope, LocalScope, Scope};
 
-use crate::{error::ValidationError, expr::RegisterBank};
-
 fn codegen_sub(b: &mut MipsBuilder, sub: &Function, scope: &Scope) -> ValidationResult<()> {
     b.new_block(get_fn_name(sub.name.data));
     scope.init_stack(b)?;
+    scope.init_stack_ptr(b);
 
     codegen_block(b, &sub.block.block, scope)?;
 
@@ -37,11 +36,10 @@ fn codegen_block(b: &mut MipsBuilder, block: &Block, scope: &Scope) -> Validatio
 }
 
 fn codegen_main(b: &mut MipsBuilder, global: &GlobalScope, p: &Program) -> ValidationResult<()> {
-    let mut local = LocalScope::default();
-    for var in &p.body.vars {
-        //local.insert(var.name, var.variable)
-    }
-    unimplemented!()
+    let local = LocalScope::from_program(&p.body)?;
+    let scope = Scope::new(&local, global);
+    scope.init_stack(b)?;
+    codegen_block(b, &p.body.block, &scope)
 }
 
 pub fn codegen(p: &Program) -> ValidationResult<String> {
@@ -54,21 +52,33 @@ pub fn codegen(p: &Program) -> ValidationResult<String> {
         global.insert_mem(mem_var)?;
     }
     for fnc in &p.fns {
-        fnc_scopes.push((fnc.name.data, LocalScope::from_fn(fnc)?));
+        fnc_scopes.push(LocalScope::from_fn(fnc)?);
         global.insert_fn(fnc);
     }
 
     let mut codegen = MipsBuilder::new();
-    /*codegen.new_block("main");
-    codegen.const_word(10, Register::T0);
-    codegen.const_word(11, Register::T1);
-    codegen.add_i32(Register::A0, Register::T0, Register::T1);
-    codegen.add_syscall(1);
-    codegen.add_syscall(10);*/
-    for (id, local) in fnc_scopes {
-        let scope = Scope::new(&local, &global);
-        codegen_sub(&mut codegen, &p.fns[id], &scope)?;
+
+    // Init static vars
+    for static_var in &p.static_vars {
+        const_expr::codegen_init_static(&mut codegen, &p.bank, static_var)?;
     }
+    // Init string static vars
+    for (str_id, str_val) in p.bank.strings.iter().enumerate() {
+        let static_name = names::get_str_name(str_id);
+        let mut str_def = DataDef::new(static_name);
+        str_def.add_dir(format!("\"{}\"", str_val));
+        codegen.add_def(str_def);
+    }
+    
+    setup_main(&mut codegen);
+    codegen_main(&mut codegen, &global, &p)?;
+    teardown_main(&mut codegen);
+
+    for (fnc, local) in p.fns.iter().zip(fnc_scopes.iter()) {
+        let scope = Scope::new(&local, &global);
+        codegen_sub(&mut codegen, fnc, &scope)?;
+    }
+
     Ok(codegen.codegen())
 }
 
@@ -78,7 +88,7 @@ fn setup_main(b: &mut MipsBuilder) {
     argc.add_dir(0);
     b.add_def(argc);
 
-    let mut argv = DataDef::new(ARGC_GLOBAL);
+    let mut argv = DataDef::new(ARGV_GLOBAL);
     argv.add_dir(0);
     b.add_def(argv);
 

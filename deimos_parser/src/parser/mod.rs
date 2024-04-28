@@ -42,6 +42,7 @@ pub fn parse(Tokens { lexemes, bank }: Tokens) -> ParseResult<Program> {
             }
             Lexeme::Keyword(Keyword::Static) => {
                 let static_var = parse_fn_varinit(&mut tokens)?;
+                tokens.expect_semicolon()?;
                 let name = static_var.name;
                 let static_id = static_vars.len();
                 static_vars.push(static_var);

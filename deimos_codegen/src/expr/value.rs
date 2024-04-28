@@ -2,9 +2,7 @@ use deimos_ast::*;
 use mips_builder::{MipsBuilder, Register};
 
 use super::binary::codegen_add;
-use super::temp::{
-    AccessMode, ExprRegister, ExprTemp, ExprType, OrVirtual, RegisterBank, EXPR_TEMP,
-};
+use super::temp::{AccessMode, ExprRegister, ExprTemp, ExprType, OrVirtual, RegisterBank};
 use crate::error::{ValidationError, ValidationResult};
 use crate::names::get_str_name;
 use crate::scope::{Scope, ValLocation};
@@ -35,16 +33,9 @@ pub fn codegen_ident(
             }
             (PrimitiveType::U8, 0) => {
                 let register = reg_bank.get_register();
-                match register {
-                    OrVirtual::Virtual(v) => {
-                        let byte_temp = EXPR_TEMP[0];
-                        b.load_byte(byte_temp, addr.loc);
-                        b.save_byte(byte_temp, v);
-                    }
-                    OrVirtual::Register(r) => {
-                        b.load_byte(r, addr.loc);
-                    }
-                }
+                register.use_reg_byte(b, 0, AccessMode::Write, |b, r| {
+                    b.load_byte(r, addr.loc);
+                });
                 register.into()
             }
             _ => {
@@ -122,13 +113,13 @@ pub fn codegen_cast(
             | (PrimitiveType::F32, 1..),
         ) => {
             let register = reg_bank.get_register();
-            expr.register
-                .use_float(b, 0, AccessMode::Read, |b, float_reg| {
-                    b.cast_from_f32(float_reg, float_reg);
-                    register.use_reg(b, 0, AccessMode::Write, |b, r| {
-                        b.mov_from_f32(r, float_reg);
-                    });
-                })?;
+            let dest_reg = expr.register.get_float()?;
+            dest_reg.use_reg(b, 0, AccessMode::Read, |b, float_reg| {
+                b.cast_from_f32(float_reg, float_reg);
+                register.use_reg(b, 0, AccessMode::Write, |b, r| {
+                    b.mov_from_f32(r, float_reg);
+                });
+            });
             reg_bank.free_reg(expr.register);
             Ok(ExprTemp::new(register, typ))
         }
@@ -139,12 +130,13 @@ pub fn codegen_cast(
             (PrimitiveType::F32, 0),
         ) => {
             let register = reg_bank.get_float_reg();
-            expr.register.use_word(b, 0, AccessMode::Read, |b, reg| {
+            let int_reg = expr.register.get_word()?;
+            int_reg.use_reg(b, 0, AccessMode::Read, |b, reg| {
                 register.use_reg(b, 0, AccessMode::Write, |b, float_reg| {
                     b.mov_to_f32(float_reg, reg);
                     b.cast_to_f32(float_reg, float_reg);
                 });
-            })?;
+            });
             reg_bank.free_reg(expr.register);
             Ok(ExprTemp {
                 register: register.into(),
@@ -195,7 +187,7 @@ pub fn codegen_index_ref(
     index: ExprTemp,
     loc: Location,
 ) -> ValidationResult<ExprTemp> {
-    match (index.type_tuple(), value.type_tuple()) {
+    match (value.type_tuple(), index.type_tuple()) {
         // value must be ptr and index must be int
         ((_, 1..), (PrimitiveType::U8 | PrimitiveType::I32 | PrimitiveType::U32, 0)) => {
             codegen_add(b, reg_bank, value, index, loc)

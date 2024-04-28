@@ -508,9 +508,11 @@ impl MipsBuilder {
         buf.push_str("\t.data\n");
 
         // Write word constants
-        let mut word_bank = DataDef::new(WORD_CONSTS_LBL);
-        word_bank.add_dir(self.word_consts);
-        word_bank.append(&mut buf);
+        if !self.word_consts.is_empty() {
+            let mut word_bank = DataDef::new(WORD_CONSTS_LBL);
+            word_bank.add_dir(self.word_consts);
+            word_bank.append(&mut buf);
+        }
 
         // Write data defs
         for val in self.data_vars {

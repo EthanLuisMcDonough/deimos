@@ -40,7 +40,7 @@ enum StackValType {
 
 /// Minimal type that can represent addresses without any strings.
 /// Can be converted into MipsAddress later
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ValLocation {
     Static(usize),
     RawAddr(u32),
@@ -61,7 +61,7 @@ impl<'a> From<ValLocation> for MipsAddress<'a> {
 }
 
 /// Copy safe located + typed value
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LocatedValue {
     pub loc: ValLocation,
     pub val: DeclType,
@@ -302,7 +302,6 @@ impl<'a> Scope<'a> {
     pub fn init_stack(&self, b: &mut MipsBuilder) -> ValidationResult<()> {
         b.const_word(self.local.get_local_stack_size(), Register::T0);
         b.sub_i32(Register::StackPtr, Register::StackPtr, Register::T0);
-        b.save_word(Register::ReturnAddr, self.local.get_ra_stack_loc());
         for val in self.local.vars.values() {
             if let StackValType::LocalVar {
                 offset,
@@ -314,6 +313,10 @@ impl<'a> Scope<'a> {
             }
         }
         Ok(())
+    }
+
+    pub fn init_stack_ptr(&self, b: &mut MipsBuilder) {
+        b.save_word(Register::ReturnAddr, self.local.get_ra_stack_loc());
     }
 
     pub fn cleanup_stack(&self, b: &mut MipsBuilder) {

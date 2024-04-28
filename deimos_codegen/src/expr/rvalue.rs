@@ -31,7 +31,7 @@ pub fn codegen_assignment(
     let mut bank = RegisterBank::default();
     let expr_val = codegen_expr(b, &assignment.lvalue, scope, &mut bank)?;
     let rval = codegen_rval(b, scope, &mut bank, &assignment.rvalue)?;
-
+    
     let rtype = rval.computed_type;
     if rtype.indirection == 0 {
         return Err(ValidationError::InvalidRValType(assignment.rvalue.loc));
@@ -43,22 +43,34 @@ pub fn codegen_assignment(
     }
 
     match rval.type_tuple() {
-        (PrimitiveType::F32, 0) => rval.register.use_word(b, 0, AccessMode::Read, |b, fr| {
-            expr_val
-                .register
-                .use_float(b, 1, AccessMode::Read, |b, fl| {
+        (PrimitiveType::F32, 0) => {
+            let rval_reg = rval.register.get_word()?;
+            let expr_reg = expr_val.register.get_float()?;
+            rval_reg.use_reg(b, 0, AccessMode::Read, |b, fr| {
+                expr_reg.use_reg(b, 1, AccessMode::Read, |b, fl| {
                     b.save_f32(fl, fr);
                 })
-        })?,
-        (PrimitiveType::U8, 0) => rval.register.use_word(b, 0, AccessMode::Read, |b, fr| {
-            expr_val.register.use_byte(b, 1, AccessMode::Read, |b, fl| {
-                b.save_byte(fl, fr);
-            })
-        })?,
-        _ => rval.register.use_word(b, 0, AccessMode::Read, |b, fr| {
-            expr_val.register.use_word(b, 1, AccessMode::Read, |b, fl| {
-                b.save_byte(fl, fr);
-            })
-        })?,
+            });
+        }
+        (PrimitiveType::U8, 0) => {
+            let rval_reg = rval.register.get_word()?;
+            let expr_reg = expr_val.register.get_word()?;
+            rval_reg.use_reg(b, 0, AccessMode::Read, |b, fr| {
+                expr_reg.use_reg_byte(b, 1, AccessMode::Read, |b, fl| {
+                    b.save_byte(fl, fr);
+                })
+            });
+        }
+        _ => {
+            let rval_reg = rval.register.get_word()?;
+            let expr_reg = expr_val.register.get_word()?;
+            rval_reg.use_reg(b, 0, AccessMode::Read, |b, fr| {
+                expr_reg.use_reg(b, 1, AccessMode::Read, |b, fl| {
+                    b.save_word(fl, fr);
+                })
+            });
+        }
     }
+
+    Ok(())
 }

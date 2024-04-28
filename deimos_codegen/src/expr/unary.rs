@@ -15,15 +15,17 @@ pub fn codegen_negation(
     match expr.type_tuple() {
         (PrimitiveType::F32, 0) => {
             expr.register
-                .use_float(b, 0, AccessMode::ReadWrite, |b, f| {
+                .get_float()?
+                .use_reg(b, 0, AccessMode::ReadWrite, |b, f| {
                     b.neg_f32(f, f);
-                })?;
+                });
         }
         (PrimitiveType::I32, 0) => {
             expr.register
-                .use_word(b, 0, AccessMode::ReadWrite, |b, r| {
+                .get_word()?
+                .use_reg(b, 0, AccessMode::ReadWrite, |b, r| {
                     b.sub_i32(r, Register::Zero, r);
-                })?;
+                });
         }
         _ => {
             return Err(ValidationError::InvalidUnary(UnaryOp::Negation, loc));
@@ -41,19 +43,21 @@ pub fn codegen_deref(
     match expr.type_tuple() {
         (PrimitiveType::F32, 1) => {
             let float_reg = reg_bank.get_float_reg();
-            expr.register.use_word(b, 0, AccessMode::Read, |b, r| {
+            let ptr_reg = expr.register.get_word()?;
+            ptr_reg.use_reg(b, 0, AccessMode::Read, |b, r| {
                 float_reg.use_reg(b, 0, AccessMode::ReadWrite, |b, f| {
                     b.load_f32(f, r);
                 });
-            })?;
+            });
             reg_bank.free_reg(expr.register);
             Ok(ExprTemp::new(float_reg, PrimitiveType::F32))
         }
         (_, 1..) => {
             expr.register
-                .use_word(b, 0, AccessMode::ReadWrite, |b, r| {
+                .get_word()?
+                .use_reg(b, 0, AccessMode::ReadWrite, |b, r| {
                     b.load_word(r, r);
-                })?;
+                });
             Ok(ExprTemp::new(
                 expr.register,
                 expr.computed_type.deref_type(),

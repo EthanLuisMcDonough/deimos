@@ -24,15 +24,16 @@ fn arith_ptr_num_expr(
             (PrimitiveType::I32 | PrimitiveType::U32 | PrimitiveType::F32, 1..),
             (PrimitiveType::I32 | PrimitiveType::U32 | PrimitiveType::U8, 0),
         ) => {
-            right.register.use_word(b, 0, AccessMode::Read, |b, r2| {
+            let ptr_reg = right.register.get_word()?;
+            let int_reg = left.register.get_word()?;
+            ptr_reg.use_reg(b, 0, AccessMode::Read, |b, r2| {
                 // Multiply right value by 4
                 b.shift_logical_left(r2, r2, 2);
                 // Regular addition
-                left.register
-                    .use_word(b, 1, AccessMode::ReadWrite, |b, r1| {
-                        u32_fnc(b, r1, r2);
-                    })
-            })??;
+                int_reg.use_reg(b, 1, AccessMode::ReadWrite, |b, r1| {
+                    u32_fnc(b, r1, r2);
+                })
+            });
         }
         // Unsigned + unsigned or u8 ptr + int
         (
@@ -41,30 +42,33 @@ fn arith_ptr_num_expr(
         )
         | ((PrimitiveType::U32, 0), (PrimitiveType::U32, 0))
         | ((PrimitiveType::U8, 0), (PrimitiveType::U8, 0)) => {
-            left.register
-                .use_word(b, 0, AccessMode::ReadWrite, |b, r1| {
-                    right.register.use_word(b, 1, AccessMode::Read, |b, r2| {
-                        u32_fnc(b, r1, r2);
-                    })
-                })??;
+            let left_reg = left.register.get_word()?;
+            let right_reg = right.register.get_word()?;
+            left_reg.use_reg(b, 0, AccessMode::ReadWrite, |b, r1| {
+                right_reg.use_reg(b, 1, AccessMode::Read, |b, r2| {
+                    u32_fnc(b, r1, r2);
+                })
+            });
         }
         // Floating addition
         ((PrimitiveType::F32, 0), (PrimitiveType::F32, 0)) => {
-            left.register
-                .use_float(b, 0, AccessMode::ReadWrite, |b, f1| {
-                    right.register.use_float(b, 1, AccessMode::Read, |b, f2| {
-                        f32_fnc(b, f1, f2);
-                    })
-                })??;
+            let left_reg = left.register.get_float()?;
+            let right_reg = right.register.get_float()?;
+            left_reg.use_reg(b, 0, AccessMode::ReadWrite, |b, f1| {
+                right_reg.use_reg(b, 1, AccessMode::Read, |b, f2| {
+                    f32_fnc(b, f1, f2);
+                })
+            });
         }
         // Addition
         ((PrimitiveType::I32, 0), (PrimitiveType::I32, 0)) => {
-            left.register
-                .use_word(b, 0, AccessMode::ReadWrite, |b, r1| {
-                    right.register.use_word(b, 1, AccessMode::Read, |b, r2| {
-                        i32_fnc(b, r1, r2);
-                    })
-                })??;
+            let left_reg = left.register.get_word()?;
+            let right_reg = right.register.get_word()?;
+            left_reg.use_reg(b, 0, AccessMode::ReadWrite, |b, r1| {
+                right_reg.use_reg(b, 1, AccessMode::Read, |b, r2| {
+                    i32_fnc(b, r1, r2);
+                })
+            });
         }
         _ => {
             return Err(ValidationError::InvalidBinary(bin_op, loc));
@@ -139,20 +143,22 @@ fn arith_num_expr(
 ) -> ValidationResult<ExprTemp> {
     match (left.type_tuple(), right.type_tuple()) {
         ((PrimitiveType::F32, 0), (PrimitiveType::F32, 0)) => {
-            left.register
-                .use_float(b, 0, AccessMode::ReadWrite, |b, f1| {
-                    right.register.use_float(b, 1, AccessMode::Read, |b, f2| {
-                        f32_fnc(b, f1, f2);
-                    })
-                })??;
+            let left_reg = left.register.get_float()?;
+            let right_reg = right.register.get_float()?;
+            left_reg.use_reg(b, 0, AccessMode::ReadWrite, |b, f1| {
+                right_reg.use_reg(b, 1, AccessMode::Read, |b, f2| {
+                    f32_fnc(b, f1, f2);
+                })
+            });
         }
         ((ty1, 0), (ty2, 0)) if ty1 == ty2 => {
-            left.register
-                .use_word(b, 0, AccessMode::ReadWrite, |b, r1| {
-                    right.register.use_word(b, 1, AccessMode::Read, |b, r2| {
-                        word_fnc(b, r1, r2);
-                    })
-                })??;
+            let left_reg = left.register.get_word()?;
+            let right_reg = right.register.get_word()?;
+            left_reg.use_reg(b, 0, AccessMode::ReadWrite, |b, r1| {
+                right_reg.use_reg(b, 1, AccessMode::Read, |b, r2| {
+                    word_fnc(b, r1, r2);
+                })
+            });
         }
         _ => {
             return Err(ValidationError::InvalidBinary(bin_op, loc));
@@ -220,12 +226,13 @@ pub fn codegen_mod(
         ((PrimitiveType::I32, 0), (PrimitiveType::I32, 0))
         | ((PrimitiveType::U32, 0), (PrimitiveType::U32, 0))
         | ((PrimitiveType::U8, 0), (PrimitiveType::U8, 0)) => {
-            left.register
-                .use_word(b, 0, AccessMode::ReadWrite, |b, r1| {
-                    right.register.use_word(b, 1, AccessMode::Read, |b, r2| {
-                        b.mod_i32(r1, r1, r2);
-                    })
-                })??;
+            let left_reg = left.register.get_word()?;
+            let right_reg = right.register.get_word()?;
+            left_reg.use_reg(b, 0, AccessMode::ReadWrite, |b, r1| {
+                right_reg.use_reg(b, 1, AccessMode::Read, |b, r2| {
+                    b.mod_i32(r1, r1, r2);
+                })
+            });
         }
         _ => {
             return Err(ValidationError::InvalidBinary(BinaryOp::Mod, loc));

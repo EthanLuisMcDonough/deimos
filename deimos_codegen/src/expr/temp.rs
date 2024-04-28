@@ -120,6 +120,41 @@ impl ExprRegularRegister {
             },
         )
     }
+
+    pub fn use_reg_byte<R>(
+        self,
+        b: &mut MipsBuilder,
+        temp_index: usize,
+        access_mode: AccessMode,
+        fnc: impl FnOnce(&mut MipsBuilder, Register) -> R,
+    ) -> R {
+        self.use_val(
+            b,
+            EXPR_TEMP[temp_index],
+            access_mode,
+            |b, temp_reg, v| {
+                b.load_byte(temp_reg, v);
+            },
+            fnc,
+            |b, temp_reg, v| {
+                b.save_byte(temp_reg, v);
+            },
+        )
+    }
+
+    pub fn load_to(&self, b: &mut MipsBuilder, r: Register) {
+        match self {
+            OrVirtual::Register(old_r) => b.mov(r, *old_r),
+            OrVirtual::Virtual(v) => b.load_word(r, *v),
+        }
+    }
+
+    pub fn load_byte_to(&self, b: &mut MipsBuilder, r: Register) {
+        match self {
+            OrVirtual::Register(old_r) => b.mov(r, *old_r),
+            OrVirtual::Virtual(v) => b.load_byte(r, *v),
+        }
+    }
 }
 
 impl ExprFloatRegister {
@@ -143,78 +178,29 @@ impl ExprFloatRegister {
             },
         )
     }
+
+    pub fn load_to(&self, b: &mut MipsBuilder, r: FloatRegister) {
+        match self {
+            OrVirtual::Register(old_r) => b.mov_f32(r, *old_r),
+            OrVirtual::Virtual(v) => b.load_f32(r, *v),
+        }
+    }
 }
 
 impl ExprRegister {
-    pub fn use_word<R>(
-        self,
-        b: &mut MipsBuilder,
-        temp_index: usize,
-        access_mode: AccessMode,
-        fnc: impl FnOnce(&mut MipsBuilder, Register) -> R,
-    ) -> ValidationResult<R> {
+    pub fn get_word(self) -> ValidationResult<ExprRegularRegister> {
         match self {
-            Self::Register(GenericRegister::Regular(r)) => Ok(fnc(b, r)),
+            Self::Register(GenericRegister::Regular(r)) => Ok(OrVirtual::Register(r)),
             Self::Register(GenericRegister::Float(f)) => Err(ValidationError::InternalFloatReg(f)),
-            Self::Virtual(v) => {
-                let temp = EXPR_TEMP[temp_index];
-                if access_mode.read_mode() {
-                    b.load_word(temp, v);
-                }
-                let val = fnc(b, temp);
-                if access_mode.write_mode() {
-                    b.save_word(temp, v);
-                }
-                Ok(val)
-            }
+            Self::Virtual(v) => Ok(OrVirtual::Virtual(v)),
         }
     }
 
-    pub fn use_byte<R>(
-        self,
-        b: &mut MipsBuilder,
-        temp_index: usize,
-        access_mode: AccessMode,
-        fnc: impl FnOnce(&mut MipsBuilder, Register) -> R,
-    ) -> ValidationResult<R> {
-        match self {
-            Self::Register(GenericRegister::Regular(r)) => Ok(fnc(b, r)),
-            Self::Register(GenericRegister::Float(f)) => Err(ValidationError::InternalFloatReg(f)),
-            Self::Virtual(v) => {
-                let temp = EXPR_TEMP[temp_index];
-                if access_mode.read_mode() {
-                    b.load_byte(temp, v);
-                }
-                let val = fnc(b, temp);
-                if access_mode.write_mode() {
-                    b.load_byte(temp, v);
-                }
-                Ok(val)
-            }
-        }
-    }
-
-    pub fn use_float<R>(
-        self,
-        b: &mut MipsBuilder,
-        temp_index: usize,
-        access_mode: AccessMode,
-        fnc: impl FnOnce(&mut MipsBuilder, FloatRegister) -> R,
-    ) -> ValidationResult<R> {
+    pub fn get_float(self) -> ValidationResult<ExprFloatRegister> {
         match self {
             Self::Register(GenericRegister::Regular(r)) => Err(ValidationError::InternalIntReg(r)),
-            Self::Register(GenericRegister::Float(f)) => Ok(fnc(b, f)),
-            Self::Virtual(v) => {
-                let temp = FLOAT_TEMP[temp_index];
-                if access_mode.read_mode() {
-                    b.load_f32(temp, v);
-                }
-                let val = fnc(b, temp);
-                if access_mode.write_mode() {
-                    b.load_f32(temp, v);
-                }
-                Ok(val)
-            }
+            Self::Register(GenericRegister::Float(f)) => Ok(OrVirtual::Register(f)),
+            Self::Virtual(v) => Ok(OrVirtual::Virtual(v)),
         }
     }
 }
@@ -247,14 +233,14 @@ impl ExprType {
     pub fn ref_type(self) -> Self {
         Self {
             base: self.base,
-            indirection: self.indirection - 1,
+            indirection: self.indirection + 1,
         }
     }
 
     pub fn deref_type(self) -> Self {
         Self {
             base: self.base,
-            indirection: self.indirection + 1,
+            indirection: self.indirection - 1,
         }
     }
 }
@@ -294,6 +280,7 @@ impl From<PrimitiveType> for ExprType {
 }
 
 /// Represents a temporary value living in a register.
+#[derive(Debug)]
 pub struct ExprTemp {
     pub register: ExprRegister,
     pub computed_type: ExprType,
@@ -324,7 +311,7 @@ static EXPR_REGISTERS: &[Register] = &[
 ];
 
 /// Registers used for handling virtual register values
-pub static EXPR_TEMP: [Register; 2] = [Register::T8, Register::T9];
+static EXPR_TEMP: [Register; 2] = [Register::T8, Register::T9];
 
 static EXPR_FLOAT_REGISTERS: &[FloatRegister] = &[
     FloatRegister::F4,
@@ -340,7 +327,7 @@ static EXPR_FLOAT_REGISTERS: &[FloatRegister] = &[
 ];
 
 /// Registers used for handling floating virtual register values
-pub static FLOAT_TEMP: [FloatRegister; 2] = [FloatRegister::F18, FloatRegister::F19];
+static FLOAT_TEMP: [FloatRegister; 2] = [FloatRegister::F18, FloatRegister::F19];
 
 #[derive(Default)]
 pub struct RegisterBank {
@@ -358,16 +345,17 @@ impl RegisterBank {
 
     fn get_virtual(&mut self) -> VirtualRegister {
         let mut offset = 0usize;
-        while !self.virtual_reg.contains(&offset) {
+        while self.virtual_reg.contains(&offset) {
             offset += 1;
         }
+        self.virtual_reg.insert(offset);
         VirtualRegister { offset }
     }
 
     pub fn get_register(&mut self) -> ExprRegularRegister {
         EXPR_REGISTERS
             .iter()
-            .find(|&r| self.registers.contains(r))
+            .find(|&&r| self.registers.insert(r))
             .map(|&r| OrVirtual::Register(r))
             .unwrap_or_else(|| OrVirtual::Virtual(self.get_virtual()))
     }
@@ -375,7 +363,7 @@ impl RegisterBank {
     pub fn get_float_reg(&mut self) -> ExprFloatRegister {
         EXPR_FLOAT_REGISTERS
             .iter()
-            .find(|&f| self.float_regs.contains(f))
+            .find(|&&f| self.float_regs.insert(f))
             .map(|&f| OrVirtual::Register(f))
             .unwrap_or_else(|| OrVirtual::Virtual(self.get_virtual()))
     }
