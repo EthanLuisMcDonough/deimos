@@ -190,7 +190,6 @@ impl LocalScope {
     }
 
     fn calc_offset_arg(&self, offset: u32) -> u32 {
-        println!("{}", self.get_stack_size() - offset);
         self.get_stack_size() - offset
     }
 
