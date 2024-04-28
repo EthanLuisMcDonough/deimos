@@ -31,7 +31,7 @@ pub fn codegen_assignment(
     let mut bank = RegisterBank::default();
     let expr_val = codegen_expr(b, &assignment.lvalue, scope, &mut bank)?;
     let rval = codegen_rval(b, scope, &mut bank, &assignment.rvalue)?;
-    
+
     let rtype = rval.computed_type;
     if rtype.indirection == 0 {
         return Err(ValidationError::InvalidRValType(assignment.rvalue.loc));

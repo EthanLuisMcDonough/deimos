@@ -69,7 +69,7 @@ pub fn codegen(p: &Program) -> ValidationResult<String> {
         str_def.add_dir(format!("\"{}\"", str_val));
         codegen.add_def(str_def);
     }
-    
+
     setup_main(&mut codegen);
     codegen_main(&mut codegen, &global, &p)?;
     teardown_main(&mut codegen);
