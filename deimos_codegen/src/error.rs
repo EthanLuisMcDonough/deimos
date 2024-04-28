@@ -27,6 +27,7 @@ pub enum ValidationError {
     InvalidRegTransfer(Identifier, Reg),
     InvalidArgCount(Location),
     InvalidArgType(Location, usize, ExprType),
+    FloatInCondition(Location),
 }
 impl Display for ValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -112,6 +113,13 @@ impl Display for ValidationError {
                 "Invalid argument type at position {} in call at {}. Expected {:?}",
                 index, loc, expected,
             ),
+            Self::FloatInCondition(loc) => {
+                write!(
+                    f,
+                    "Floating point value found in condition at {}. Condition must be int",
+                    loc
+                )
+            }
         }
     }
 }

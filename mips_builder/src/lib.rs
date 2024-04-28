@@ -423,6 +423,13 @@ impl MipsBuilder {
         self.instr3("sle", dest, source1, source2);
     }
 
+    pub fn and_i32(&mut self, dest: Register, source1: Register, source2: Register) {
+        self.instr3("and", dest, source1, source2);
+    }
+    pub fn or_i32(&mut self, dest: Register, source1: Register, source2: Register) {
+        self.instr3("or", dest, source1, source2);
+    }
+
     pub fn jump_register(&mut self, dest: Register) {
         self.instr(format!("jr {}", dest));
     }

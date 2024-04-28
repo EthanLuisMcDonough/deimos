@@ -6,25 +6,40 @@ use crate::expr::temp::{AccessMode, ExprType};
 use crate::expr::{self, codegen_expr, RegisterBank};
 use crate::names::get_fn_name;
 use crate::scope::{LocatedValue, ValLocation};
+use crate::{get_elif_lbl, get_if_else, get_if_end, get_if_lbl, get_while_end, get_while_lbl};
 
 use super::error::{ValidationError, ValidationResult};
 use super::expr::rvalue::codegen_assignment;
-use super::scope::Scope;
+use super::scope::{ConstructCounter, Scope};
+
+pub fn codegen_block(
+    b: &mut MipsBuilder,
+    block: &Block,
+    scope: &Scope,
+    p: &Program,
+    c: &mut ConstructCounter,
+) -> ValidationResult<()> {
+    for stmt in block {
+        codegen_stmt(b, &stmt.data, scope, p, c)?;
+    }
+    Ok(())
+}
 
 pub fn codegen_stmt(
     b: &mut MipsBuilder,
     stmt: &Statement,
     s: &Scope,
     p: &Program,
+    c: &mut ConstructCounter,
 ) -> ValidationResult<()> {
     match stmt {
         Statement::Assignment(assignment) => codegen_assignment(b, s, assignment),
         Statement::Call(invoc) => codegen_fnc_call(b, invoc, s),
         Statement::Asm(asm) => codegen_asm(b, asm, s, &p.bank),
-        Statement::ControlBreak(_) => unimplemented!(),
+        Statement::ControlBreak(_) => unimplemented!("return/continue/break not implemented"),
         Statement::Syscall(syscall) => codegen_syscall(b, syscall, s),
-        Statement::LogicChain(l) => unimplemented!(),
-        Statement::While(w) => unimplemented!(),
+        Statement::LogicChain(l) => codegen_logic_chain(b, l, s, c),
+        Statement::While(w) => codegen_while(b, w, s, p, c),
         Statement::Print(p) => codegen_print(b, p, s),
     }
 }
@@ -226,7 +241,6 @@ fn codegen_fnc_call(
             let reg = expr.register.get_word()?;
             reg.use_reg(b, 0, AccessMode::Read, |b, r| {
                 b.save_word(r, addr);
-                //b.instr("# PLUH".into());
             });
         }
 
@@ -237,4 +251,92 @@ fn codegen_fnc_call(
     b.jump_and_link(&fn_name);
 
     Ok(())
+}
+
+/// Generates the branch instructions for a given condition.
+/// Branches to fail_branch if expression is equal to zero.
+fn codegen_condition(
+    b: &mut MipsBuilder,
+    e: &Expression,
+    s: &Scope,
+    bank: &mut RegisterBank,
+    fail_branch: &str,
+) -> ValidationResult<()> {
+    let expr = codegen_expr(b, e, s, bank)?;
+
+    if let ExprType {
+        indirection: 0,
+        base: PrimitiveType::F32,
+    } = expr.computed_type
+    {
+        return Err(ValidationError::FloatInCondition(e.get_loc()));
+    }
+
+    let reg = expr.register.get_word()?;
+    reg.use_reg(b, 0, AccessMode::Read, |b, r| {
+        b.branch_eq_zero(r, &fail_branch);
+    });
+
+    Ok(())
+}
+
+fn codegen_while(
+    b: &mut MipsBuilder,
+    loop_block: &ConditionBody,
+    s: &Scope,
+    p: &Program,
+    c: &mut ConstructCounter,
+) -> ValidationResult<()> {
+    let loop_id = c.start_loop();
+    let loop_start_lbl = get_while_lbl(loop_id);
+    let loop_end_lbl = get_while_end(loop_id);
+
+    let mut bank = RegisterBank::default();
+
+    b.new_block(loop_start_lbl.clone());
+
+    codegen_condition(b, &loop_block.condition, s, &mut bank, &loop_end_lbl)?;
+
+    codegen_block(b, &loop_block.body, s, p, c)?;
+    b.branch(&loop_start_lbl);
+
+    b.new_block(loop_end_lbl);
+
+    let loop_id_check = c.end_loop();
+    assert_eq!(loop_id, loop_id_check);
+
+    Ok(())
+}
+
+/// Generates the code for an if/else logic chain
+fn codegen_logic_chain(
+    b: &mut MipsBuilder,
+    l: &LogicChain,
+    s: &Scope,
+    c: &mut ConstructCounter,
+) -> ValidationResult<()> {
+    let if_id = c.new_if();
+    let if_lbl = get_if_lbl(if_id);
+    let elif_lbls = (0..l.elifs.len())
+        .map(|i| get_elif_lbl(if_id, i))
+        .collect::<Vec<_>>();
+    let end_lbl = get_if_end(if_id);
+    let else_lbl = l.else_block.as_ref().map(|_| get_if_else(if_id));
+
+    b.new_block(if_lbl);
+
+    let mut bank = RegisterBank::default();
+
+    //let cur_lbl =
+    /*let next_lbl = elif_lbls.iter()
+        .chain(std::iter::once(&else_lbl));
+    let conditions = std::iter::once(&l.if_block).chain(l.elifs.iter());
+
+    for (condition_body, next_lbl) in conditions.zip(next_lbl) {
+        //condition_body
+    }*/
+
+    //codegen_condition(b, &l.if_block.condition, s, &mut bank, )
+    //l.if_block
+    unimplemented!()
 }

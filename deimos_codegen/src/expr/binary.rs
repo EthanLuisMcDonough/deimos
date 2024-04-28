@@ -7,6 +7,8 @@ use crate::error::{ValidationError, ValidationResult};
 use crate::expr::unary::codegen_deref;
 
 /// Scaffold function for + and -
+/// Operators that take number operands but can also
+/// do pointer manipulation
 fn arith_ptr_num_expr(
     b: &mut MipsBuilder,
     reg_bank: &mut RegisterBank,
@@ -131,6 +133,7 @@ pub fn codegen_sub(
 }
 
 /// Scaffold for * and /
+/// Operators that take numeric operands
 fn arith_num_expr(
     b: &mut MipsBuilder,
     reg_bank: &mut RegisterBank,
@@ -214,15 +217,18 @@ pub fn codegen_div(
     )
 }
 
-pub fn codegen_mod(
+/// Scaffold for %, 'and', and 'or'
+/// Operators that take exclusively int operands
+fn arith_int_expr(
     b: &mut MipsBuilder,
     reg_bank: &mut RegisterBank,
     left: ExprTemp,
     right: ExprTemp,
+    bin_op: BinaryOp,
     loc: Location,
+    word_fnc: impl FnOnce(&mut MipsBuilder, Register, Register),
 ) -> ValidationResult<ExprTemp> {
     match (left.type_tuple(), right.type_tuple()) {
-        // Mod only accepts matching int types
         ((PrimitiveType::I32, 0), (PrimitiveType::I32, 0))
         | ((PrimitiveType::U32, 0), (PrimitiveType::U32, 0))
         | ((PrimitiveType::U8, 0), (PrimitiveType::U8, 0)) => {
@@ -230,16 +236,74 @@ pub fn codegen_mod(
             let right_reg = right.register.get_word()?;
             left_reg.use_reg(b, 0, AccessMode::ReadWrite, |b, r1| {
                 right_reg.use_reg(b, 1, AccessMode::Read, |b, r2| {
-                    b.mod_i32(r1, r1, r2);
+                    word_fnc(b, r1, r2);
                 })
             });
+            reg_bank.free_reg(right.register);
+            Ok(left)
         }
-        _ => {
-            return Err(ValidationError::InvalidBinary(BinaryOp::Mod, loc));
-        }
+        _ => Err(ValidationError::InvalidBinary(bin_op, loc)),
     }
-    reg_bank.free_reg(right.register);
-    Ok(left)
+}
+
+pub fn codgen_logic_and(
+    b: &mut MipsBuilder,
+    reg_bank: &mut RegisterBank,
+    left: ExprTemp,
+    right: ExprTemp,
+    loc: Location,
+) -> ValidationResult<ExprTemp> {
+    arith_int_expr(
+        b,
+        reg_bank,
+        left,
+        right,
+        BinaryOp::And,
+        loc,
+        |b, r1, r2| {
+            b.and_i32(r1, r1, r2);
+        }
+    )
+}
+
+pub fn codgen_logic_or(
+    b: &mut MipsBuilder,
+    reg_bank: &mut RegisterBank,
+    left: ExprTemp,
+    right: ExprTemp,
+    loc: Location,
+) -> ValidationResult<ExprTemp> {
+    arith_int_expr(
+        b,
+        reg_bank,
+        left,
+        right,
+        BinaryOp::Or,
+        loc,
+        |b, r1, r2| {
+            b.or_i32(r1, r1, r2);
+        }
+    )
+}
+
+pub fn codegen_mod(
+    b: &mut MipsBuilder,
+    reg_bank: &mut RegisterBank,
+    left: ExprTemp,
+    right: ExprTemp,
+    loc: Location,
+) -> ValidationResult<ExprTemp> {
+    arith_int_expr(
+        b,
+        reg_bank,
+        left,
+        right,
+        BinaryOp::Mod,
+        loc,
+        |b, r1, r2| {
+            b.mod_i32(r1, r1, r2);
+        }
+    )
 }
 
 pub fn codegen_index_access(

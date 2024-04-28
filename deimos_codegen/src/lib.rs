@@ -4,6 +4,7 @@ use mips_builder::{DataDef, MipsBuilder, Register};
 mod const_expr;
 mod error;
 mod expr;
+mod internal;
 mod names;
 mod scope;
 mod stmt;
@@ -11,19 +12,20 @@ mod stmt;
 use names::*;
 
 use error::ValidationResult;
-use scope::{GlobalScope, LocalScope, Scope};
+use scope::{ConstructCounter, GlobalScope, LocalScope, Scope};
 
 fn codegen_sub(
     b: &mut MipsBuilder,
     sub: &Function,
     scope: &Scope,
     p: &Program,
+    c: &mut ConstructCounter,
 ) -> ValidationResult<()> {
     b.new_block(get_fn_name(sub.name.data));
     scope.init_stack(b)?;
     scope.init_stack_ptr(b);
 
-    codegen_block(b, &sub.block.block, scope, p)?;
+    stmt::codegen_block(b, &sub.block.block, scope, p, c)?;
 
     b.new_block(get_fn_end(sub.name.data));
     scope.restore_ra(b);
@@ -33,23 +35,16 @@ fn codegen_sub(
     Ok(())
 }
 
-fn codegen_block(
+fn codegen_main(
     b: &mut MipsBuilder,
-    block: &Block,
-    scope: &Scope,
+    global: &GlobalScope,
     p: &Program,
+    c: &mut ConstructCounter,
 ) -> ValidationResult<()> {
-    for stmt in block {
-        stmt::codegen_stmt(b, &stmt.data, scope, p)?;
-    }
-    Ok(())
-}
-
-fn codegen_main(b: &mut MipsBuilder, global: &GlobalScope, p: &Program) -> ValidationResult<()> {
     let local = LocalScope::from_program(&p.body)?;
     let scope = Scope::new(&local, global);
     scope.init_stack(b)?;
-    codegen_block(b, &p.body.block, &scope, p)
+    stmt::codegen_block(b, &p.body.block, &scope, p, c)
 }
 
 pub fn codegen(p: &Program) -> ValidationResult<String> {
@@ -67,6 +62,7 @@ pub fn codegen(p: &Program) -> ValidationResult<String> {
     }
 
     let mut codegen = MipsBuilder::new();
+    let mut counter = ConstructCounter::default();
 
     // Init static vars
     for static_var in &p.static_vars {
@@ -80,41 +76,14 @@ pub fn codegen(p: &Program) -> ValidationResult<String> {
         codegen.add_def(str_def);
     }
 
-    setup_main(&mut codegen);
-    codegen_main(&mut codegen, &global, &p)?;
-    teardown_main(&mut codegen);
+    internal::setup_main(&mut codegen);
+    codegen_main(&mut codegen, &global, &p, &mut counter)?;
+    internal::teardown_main(&mut codegen);
 
     for (fnc, local) in p.fns.iter().zip(fnc_scopes.iter()) {
         let scope = Scope::new(&local, &global);
-        codegen_sub(&mut codegen, fnc, &scope, p)?;
+        codegen_sub(&mut codegen, fnc, &scope, p, &mut counter)?;
     }
 
     Ok(codegen.codegen())
-}
-
-fn setup_main(b: &mut MipsBuilder) {
-    // Save CLI arguments
-    let mut argc = DataDef::new(ARGC_GLOBAL);
-    argc.add_dir(0);
-    b.add_def(argc);
-
-    let mut argv = DataDef::new(ARGV_GLOBAL);
-    argv.add_dir(0);
-    b.add_def(argv);
-
-    b.new_block("main");
-    b.save_word(Register::A0, ARGC_GLOBAL);
-    b.save_word(Register::A1, ARGV_GLOBAL);
-}
-
-fn teardown_main(b: &mut MipsBuilder) {
-    b.add_syscall(10);
-
-    b.new_block(GET_FLOAT_BOOL);
-    b.branch_float_false(GET_FLOAT_BOOL_FALSE);
-    b.const_word(1, Register::V0);
-    b.jump_register(Register::ReturnAddr);
-    b.new_block(GET_FLOAT_BOOL_FALSE);
-    b.const_word(0, Register::V0);
-    b.jump_register(Register::ReturnAddr);
 }

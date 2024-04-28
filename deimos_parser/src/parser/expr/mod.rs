@@ -58,6 +58,9 @@ pub fn parse_expression(mut tokens: TokenIter) -> ParseResult<Expression> {
                 stack.push_expr(Expression::Identifier(Located::new(i, token.loc)));
             }
             Lexeme::Multiply if stack.yield_unary() => stack.push_op(UnaryOp::Deref, token.loc)?,
+            Lexeme::LogicNot if stack.yield_unary() => {
+                stack.push_op(UnaryOp::LogicNot, token.loc)?
+            }
             Lexeme::Reference => stack.push_op(UnaryOp::Reference, token.loc)?,
             Lexeme::Plus => stack.push_op(BinaryOp::Add, token.loc)?,
             Lexeme::Minus if stack.yield_unary() => stack.push_op(UnaryOp::Negation, token.loc)?,

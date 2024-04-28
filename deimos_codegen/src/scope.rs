@@ -152,7 +152,12 @@ impl LocalScope {
         })
     }
 
-    fn get_var(&self, name: Identifier, global: &GlobalScope, stack_shift: u32) -> ValidationResult<LocatedValue> {
+    fn get_var(
+        &self,
+        name: Identifier,
+        global: &GlobalScope,
+        stack_shift: u32,
+    ) -> ValidationResult<LocatedValue> {
         self.get_local_var(name, stack_shift)
             .map(Ok)
             .unwrap_or_else(|| global.get_val(name).cloned())
@@ -315,8 +320,11 @@ impl<'a> Scope<'a> {
     }
 
     pub fn cleanup_stack(&self, b: &mut MipsBuilder) {
-        b.const_word(self.local.get_stack_size(), Register::T0);
-        b.add_i32(Register::StackPtr, Register::StackPtr, Register::T0);
+        b.add_const_i32(
+            Register::StackPtr,
+            Register::StackPtr,
+            self.local.get_stack_size() as i32,
+        );
     }
 
     pub fn restore_ra(&self, b: &mut MipsBuilder) {
@@ -324,23 +332,38 @@ impl<'a> Scope<'a> {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct BlockMeta {
-    pub construct_count: usize,
-    pub loop_count: usize,
-    pub in_func: Option<usize>,
+#[derive(Default)]
+pub struct ConstructCounter {
+    if_count: usize,
+    loop_count: usize,
+    loop_stack: Vec<usize>,
+    in_func: Option<usize>,
 }
 
-impl BlockMeta {
-    pub fn new_loop(&mut self) -> usize {
+impl ConstructCounter {
+    fn new_loop(&mut self) -> usize {
         let old = self.loop_count;
         self.loop_count += 1;
         old
     }
 
-    pub fn new_construct(&mut self) -> usize {
-        let old = self.construct_count;
-        self.construct_count += 1;
+    pub fn start_loop(&mut self) -> usize {
+        let ind = self.new_loop();
+        self.loop_stack.push(ind);
+        ind
+    }
+
+    pub fn end_loop(&mut self) -> usize {
+        self.loop_stack.pop().expect("Loop end without start")
+    }
+
+    pub fn new_if(&mut self) -> usize {
+        let old = self.if_count;
+        self.if_count += 1;
         old
+    }
+
+    pub fn get_current_loop(&self) -> Option<usize> {
+        self.loop_stack.last().cloned()
     }
 }

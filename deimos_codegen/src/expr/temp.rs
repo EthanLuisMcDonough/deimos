@@ -149,6 +149,13 @@ impl ExprRegularRegister {
         }
     }
 
+    pub fn store_val(&self, b: &mut MipsBuilder, old_r: Register) {
+        match self {
+            OrVirtual::Register(r) => b.mov(*r, old_r),
+            OrVirtual::Virtual(v) => b.save_word(old_r, *v),
+        }
+    }
+
     pub fn load_byte_to(&self, b: &mut MipsBuilder, r: Register) {
         match self {
             OrVirtual::Register(old_r) => b.mov(r, *old_r),
@@ -311,7 +318,7 @@ static EXPR_REGISTERS: &[Register] = &[
 ];
 
 /// Registers used for handling virtual register values
-static EXPR_TEMP: [Register; 2] = [Register::T8, Register::T9];
+pub static EXPR_TEMP: [Register; 2] = [Register::T8, Register::T9];
 
 static EXPR_FLOAT_REGISTERS: &[FloatRegister] = &[
     FloatRegister::F4,
@@ -327,7 +334,7 @@ static EXPR_FLOAT_REGISTERS: &[FloatRegister] = &[
 ];
 
 /// Registers used for handling floating virtual register values
-static FLOAT_TEMP: [FloatRegister; 2] = [FloatRegister::F18, FloatRegister::F19];
+pub static FLOAT_TEMP: [FloatRegister; 2] = [FloatRegister::F18, FloatRegister::F19];
 
 #[derive(Default)]
 pub struct RegisterBank {

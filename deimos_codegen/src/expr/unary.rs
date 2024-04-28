@@ -112,7 +112,7 @@ pub fn codegen_unary(
         UnaryOp::Reference => codegen_ref(b, reg_bank, s, expr, op.loc),
         UnaryOp::LogicNot => {
             let expr_val = super::codegen_expr(b, expr, s, reg_bank)?;
-            codegen_logic_not(b, reg_bank, expr_val, op.loc)
+            codegen_logic_not(b, reg_bank, expr_val)
         }
         UnaryOp::Deref => {
             let expr_val = super::codegen_expr(b, expr, s, reg_bank)?;

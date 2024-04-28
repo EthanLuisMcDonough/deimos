@@ -1,4 +1,4 @@
-use super::{Located, ParamType};
+use super::{Located, Location, ParamType};
 
 pub type Identifier = Located<usize>;
 
@@ -53,4 +53,16 @@ pub enum Expression {
     },
     Identifier(Identifier),
     Primitive(Located<PrimitiveValue>),
+}
+
+impl Expression {
+    /// Extracts location from expression
+    pub fn get_loc(&self) -> Location {
+        match self {
+            Self::Cast { value, .. } | Self::Binary { left: value, .. } => value.get_loc(),
+            Self::Unary { op, .. } => op.loc,
+            Self::Identifier(ident) => ident.loc,
+            Self::Primitive(p) => p.loc,
+        }
+    }
 }
