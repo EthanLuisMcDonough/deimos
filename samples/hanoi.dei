@@ -1,0 +1,11 @@
+sub towers_of_hanoi(n: i32, from: i32, to: i32, other: i32) {
+   if (n > 0) {
+      call towers_of_hanoi(n - 1, from, other, to);
+      print "Move D", n, " from R", from, " to R", to, "\n";
+      call towers_of_hanoi(n - 1, other, to, from); # test
+   }
+}
+
+program {
+   call towers_of_hanoi(3, 1, 2, 3);
+}

@@ -51,7 +51,6 @@ sub close_file(fd: u32) {
     }
 }
 
-
 sub exit(code: i32) {
     syscall (17) {
         in: ($a0: code);
@@ -61,7 +60,7 @@ sub exit(code: i32) {
 sub read_i32(o: &i32) {
     let result: i32;
     syscall (5) {
-        in: ($v0: result);
+        out: ($v0: result);
     }
     *o = result;
 }
