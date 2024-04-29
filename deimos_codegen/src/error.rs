@@ -1,4 +1,4 @@
-use deimos_ast::{BinaryOp, Identifier, Location, Reg, UnaryOp};
+use deimos_ast::{BinaryOp, ControlBreak, Identifier, Location, Reg, UnaryOp};
 use mips_builder::{FloatRegister, Register};
 use std::error::Error;
 use std::fmt::Display;
@@ -28,6 +28,7 @@ pub enum ValidationError {
     InvalidArgCount(Location),
     InvalidArgType(Location, usize, ExprType),
     FloatInCondition(Location),
+    InvalidControlFlow(Location, ControlBreak),
 }
 impl Display for ValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -119,6 +120,9 @@ impl Display for ValidationError {
                     "Floating point value found in condition at {}. Condition must be int",
                     loc
                 )
+            }
+            Self::InvalidControlFlow(loc, b) => {
+                write!(f, "Invalid {:?} at {}", b, loc)
             }
         }
     }

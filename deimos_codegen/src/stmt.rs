@@ -5,8 +5,8 @@ use crate::expr::print::codegen_print_val;
 use crate::expr::temp::{AccessMode, ExprType};
 use crate::expr::{self, codegen_expr, RegisterBank};
 use crate::names::get_fn_name;
+use crate::names::*;
 use crate::scope::{LocatedValue, ValLocation};
-use crate::{get_elif_lbl, get_if_else, get_if_end, get_if_lbl, get_while_end, get_while_lbl};
 
 use super::error::{ValidationError, ValidationResult};
 use super::expr::rvalue::codegen_assignment;
@@ -38,11 +38,29 @@ pub fn codegen_stmt(
         Statement::Assignment(assignment) => codegen_assignment(b, s, assignment),
         Statement::Call(invoc) => codegen_fnc_call(b, invoc, s),
         Statement::Asm(asm) => codegen_asm(b, asm, s, &p.bank),
-        Statement::ControlBreak(_) => unimplemented!("return/continue/break not implemented"),
+        Statement::ControlBreak(control) => codegen_control_flow(b, control, c),
         Statement::Syscall(syscall) => codegen_syscall(b, syscall, s),
         Statement::LogicChain(l) => codegen_logic_chain(b, l, s, p, c),
         Statement::While(w) => codegen_while(b, w, s, p, c),
         Statement::Print(p) => codegen_print(b, p, s),
+    }
+}
+
+fn codegen_control_flow(
+    b: &mut MipsBuilder,
+    f: &Located<ControlBreak>,
+    c: &mut ConstructCounter,
+) -> ValidationResult<()> {
+    let label = match &f.data {
+        ControlBreak::Return => c.get_current_fn().map(get_fn_end),
+        ControlBreak::Continue => c.get_current_loop().map(get_while_lbl),
+        ControlBreak::Break => c.get_current_loop().map(get_while_end),
+    };
+    if let Some(l) = label {
+        b.branch(&l);
+        Ok(())
+    } else {
+        Err(ValidationError::InvalidControlFlow(f.loc, f.data))
     }
 }
 
@@ -331,7 +349,7 @@ fn codegen_logic_chain(
 ) -> ValidationResult<()> {
     let if_id = c.new_if();
     let if_lbl = get_if_lbl(if_id);
-    
+
     // Iterator for checking next label in logic chain
     let elif_lbls = (0..l.elifs.len())
         .map(|i| get_elif_lbl(if_id, i))

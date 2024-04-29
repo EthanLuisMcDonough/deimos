@@ -382,7 +382,19 @@ impl ConstructCounter {
         old
     }
 
+    pub fn enter_fn(&mut self, fnc_id: usize) {
+        self.in_func = fnc_id.into();
+    }
+
+    pub fn clear_fn(&mut self) {
+        self.in_func = None;
+    }
+
     pub fn get_current_loop(&self) -> Option<usize> {
         self.loop_stack.last().cloned()
+    }
+
+    pub fn get_current_fn(&self) -> Option<usize> {
+        self.in_func
     }
 }

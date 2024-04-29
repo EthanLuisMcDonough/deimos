@@ -316,12 +316,15 @@ fn parse_block_until_end(tokens: &mut TokenIter) -> ParseResult<Block> {
             Lexeme::Keyword(Keyword::While) => Statement::While(parse_condition_body(tokens)?),
             Lexeme::Keyword(k @ Keyword::Break | k @ Keyword::Continue | k @ Keyword::Return) => {
                 tokens.expect_semicolon()?;
-                Statement::ControlBreak(match k {
-                    Keyword::Break => ControlBreak::Break,
-                    Keyword::Return => ControlBreak::Return,
-                    Keyword::Continue => ControlBreak::Continue,
-                    _ => unreachable!(),
-                })
+                Statement::ControlBreak(Located::new(
+                    match k {
+                        Keyword::Break => ControlBreak::Break,
+                        Keyword::Return => ControlBreak::Return,
+                        Keyword::Continue => ControlBreak::Continue,
+                        _ => unreachable!(),
+                    },
+                    token.loc,
+                ))
             }
             Lexeme::Keyword(Keyword::Asm) => Statement::Asm(parse_asm(tokens)?),
             Lexeme::Keyword(Keyword::Print) => Statement::Print(parse_print(tokens)?),

@@ -23,7 +23,7 @@ pub struct LogicChain {
     pub else_block: Option<Block>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum ControlBreak {
     Break,
     Continue,
@@ -54,7 +54,7 @@ pub enum Statement {
     Call(Invocation),
     Assignment(Assignment),
     Syscall(Syscall),
-    ControlBreak(ControlBreak),
+    ControlBreak(Located<ControlBreak>),
     Print(Print),
     Asm(AsmBlock),
 }

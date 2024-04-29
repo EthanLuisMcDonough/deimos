@@ -21,6 +21,7 @@ fn codegen_sub(
     p: &Program,
     c: &mut ConstructCounter,
 ) -> ValidationResult<()> {
+    c.enter_fn(sub.name.data);
     b.new_block(get_fn_name(sub.name.data));
     scope.init_stack(b)?;
     scope.init_stack_ptr(b);
@@ -32,6 +33,7 @@ fn codegen_sub(
     scope.cleanup_stack(b);
     b.jump_register(Register::ReturnAddr);
 
+    c.clear_fn();
     Ok(())
 }
 
