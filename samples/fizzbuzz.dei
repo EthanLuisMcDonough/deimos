@@ -3,7 +3,6 @@ program {
 
     print "Enter the number of numbers you'd like to fizzbuzz: ";
     call read_i32(&count);
-    print count;
 
     while (index < count) {
         if (index % 3 == 0 and index % 5 == 0) {

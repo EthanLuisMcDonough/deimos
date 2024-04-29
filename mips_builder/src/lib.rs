@@ -469,11 +469,11 @@ impl MipsBuilder {
     pub fn mov_to_f32(&mut self, dest: FloatRegister, source: Register) {
         self.instr2("mtc1", source, dest);
     }
-    pub fn cast_to_f32(&mut self, int: FloatRegister, float: FloatRegister) {
-        self.instr2("cvt.w.s", int, float);
+    pub fn cast_to_f32(&mut self, float: FloatRegister, int: FloatRegister) {
+        self.instr2("cvt.s.w", int, float);
     }
-    pub fn cast_from_f32(&mut self, float: FloatRegister, int: FloatRegister) {
-        self.instr2("cvt.s.w", float, int);
+    pub fn cast_from_f32(&mut self, int: FloatRegister, float: FloatRegister) {
+        self.instr2("cvt.w.s", float, int);
     }
 
     pub fn add_f32(&mut self, dest: FloatRegister, f1: FloatRegister, f2: FloatRegister) {
