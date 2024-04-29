@@ -129,6 +129,16 @@ sub mars_get_rng_i32(rng_id: u32, i: &i32) {
     *i = v;
 }
 
+
+sub mars_get_rng_range(rng_id: u32, low: i32, hi: i32, i: &i32) {
+    let v: i32;
+    syscall (42) {
+        in: ($a0: rng_id, $a1: hi);
+        out: ($a0: v);
+    }
+    *i = v + low;
+}
+
 sub mars_get_rng_f32(rng_id: u32, i: &f32) {
     let v: f32;
     syscall (43) {

@@ -1,0 +1,20 @@
+static RNG_ID: u32 = 0u;
+
+program {
+    let seed: u32, rng_val: i32, instrument: u32, pitch: u32;
+
+    call mars_time(&seed, &instrument);
+    print "Setting seed ", seed, "\n";
+
+    call mars_set_rng_seed(RNG_ID, seed);
+
+    while (1) {
+        call mars_get_rng_range(RNG_ID, 0, 128, &rng_val);
+        instrument = rng_val as u32;
+        call mars_get_rng_range(RNG_ID, 0, 128, &rng_val);
+        pitch = rng_val as u32;
+        print "Instrument: ", instrument, " | pitch: ", pitch, "\n";
+        call mars_midi_sync(pitch, 700u, instrument, 100u);
+        call mars_sleep(500u);
+    }
+}
