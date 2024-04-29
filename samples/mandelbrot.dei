@@ -1,0 +1,38 @@
+static IMAGE_DIM: i32 = 150; # Size of image
+static MAX_ITER: i32 = 100;
+static THRESHOLD: i32 = 30;
+
+sub mandel_iter(x: f32, y: f32, count: &i32) {
+    let i: i32 = 0, ox: f32, oy: f32, tx: f32, ty: f32;
+    ox = x;
+    oy = y;
+    while ((i < MAX_ITER) and (x*x + y*y <= 4.0)) {
+        tx = x;
+        ty = y;
+        x = tx*tx - ty*ty + ox;
+        y = 2.0*tx*ty + oy;
+        i = i + 1;
+    }
+    *count = i;
+}
+
+program {
+    let x: i32 = 0, y: i32 = 0, c: f32, it: i32;
+
+    c = (IMAGE_DIM as f32) / 2.0;
+
+    while (y < IMAGE_DIM) {
+        x = 0;
+        while (x < IMAGE_DIM) {
+            call mandel_iter(((x as f32)-c*0.5)/(c/2.0), ((y as f32)-c)/(c/2.0), &it);
+            if (it > THRESHOLD) {
+                print 42 as u8;
+            } else {
+                print 32 as u8;
+            }
+            x = x + 1;
+        }
+        print "\n";
+        y = y + 1;
+    }
+}
