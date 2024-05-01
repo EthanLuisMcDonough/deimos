@@ -15,6 +15,14 @@ pub fn codegen_ident(
     ident: Identifier,
 ) -> ValidationResult<ExprTemp> {
     let addr = s.get_var(ident)?;
+    let expr_type = ExprType::from(addr.val.clone());
+    if let ValLocation::RawAddr(addr) = &addr.loc {
+        let register = reg_bank.get_register();
+        register.use_reg(b, 0, AccessMode::Write, |b, r| {
+            b.const_word(*addr, r);
+        });
+        return Ok(ExprTemp::new(register, expr_type));
+    }
     let reg: ExprRegister = match &addr.val {
         DeclType::Array { .. } => {
             let register = reg_bank.get_register();
@@ -47,7 +55,7 @@ pub fn codegen_ident(
             }
         },
     };
-    Ok(ExprTemp::new(reg, ExprType::from(addr.val)))
+    Ok(ExprTemp::new(reg, expr_type))
 }
 
 fn const_word(b: &mut MipsBuilder, reg_bank: &mut RegisterBank, word: u32) -> OrVirtual<Register> {
