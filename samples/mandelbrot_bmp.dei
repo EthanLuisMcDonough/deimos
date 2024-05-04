@@ -1,0 +1,50 @@
+# MARS Bitmap configuration details:
+# Unit width and height: 1x1 px
+# Display width and height: 256x256 px
+
+mem(0x10040000) IMAGE_DATA: &i32;
+static IMAGE_DIM: i32 = 256; # Size of image
+static MAX_ITER: i32 = 100;
+
+sub mini(x: i32, y: i32, v: &i32) {
+    if (x < y) {
+        *v = x;
+    } else {
+        *v = y;
+    }
+}
+
+sub mandel_iter(x: f32, y: f32, count: &i32) {
+    let i: i32 = 1, cx: f32 = 0.0, cy: f32 = 0.0, tx: f32, ty: f32;
+    while (i < MAX_ITER and cx*cx + cy*cy < 4.0) {
+        tx = cx;
+        ty = cy;
+        cx = tx*tx - ty*ty + x;
+        cy = 2.0*tx*ty + y;
+        i = i + 1;
+    }
+    *count = i;
+}
+
+program {
+    let index: i32 = 0, row: i32 = 0, col: i32 = 0,
+        c: f32, it: i32, x: f32, y: f32, b: i32;
+    c = (IMAGE_DIM as f32) / 2.0;
+
+    while (row < IMAGE_DIM) {
+        col = 0;
+        while (col < IMAGE_DIM) {
+            index = (col + row * IMAGE_DIM);
+            x = (col as f32) * 0.75;
+            y = (row as f32) * 0.6;
+
+            call mandel_iter((x-c*0.5)/(c/2.0), (y-c*0.6)/(c/2.0), &it);
+            it = ((((it * 3) as f32) / (MAX_ITER as f32)) * 255.0) as i32;
+            call mini(it, 255, &it);
+
+            IMAGE_DATA[index] = it * 16777216 + it * 65536 + it * 256 + it;
+            col = col + 1;
+        }
+        row = row + 1;
+    }
+}
