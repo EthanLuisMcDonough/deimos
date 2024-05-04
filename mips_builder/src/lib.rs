@@ -351,9 +351,14 @@ impl MipsBuilder {
     }
 
     fn ins_word(&mut self, val: u32) -> usize {
-        let word_count = self.word_const_ind.len();
-        self.word_consts.push(val);
-        *self.word_const_ind.entry(val).or_insert(word_count)
+        if let Some(index) = self.word_const_ind.get(&val) {
+            *index
+        } else {
+            let word_count = self.word_const_ind.len();
+            self.word_consts.push(val);
+            self.word_const_ind.insert(val, word_count);
+            word_count
+        }
     }
     pub fn const_word(&mut self, val: u32, dest: Register) {
         if val == 0 {
