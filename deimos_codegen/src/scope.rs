@@ -82,6 +82,7 @@ pub struct LocatedValue {
 #[derive(Default)]
 pub struct LocalScope {
     vars: HashMap<usize, StackVal>,
+    ins_order: Vec<usize>,
     return_addr_offset: u32,
     local_stack_size: u32,
     arg_stack_size: u32,
@@ -160,6 +161,7 @@ impl LocalScope {
         if self.vars.insert(name.data, val).is_some() {
             Err(ValidationError::Redefinition(name.loc))
         } else {
+            self.ins_order.push(name.data);
             Ok(())
         }
     }
@@ -321,7 +323,12 @@ impl<'a> Scope<'a> {
     pub fn init_stack(&self, b: &mut MipsBuilder) -> ValidationResult<()> {
         let neg_stack = -(self.local.get_local_stack_size() as i32);
         b.add_const_i32(Register::StackPtr, Register::StackPtr, neg_stack);
-        for val in self.local.vars.values() {
+        for val in self
+            .local
+            .ins_order
+            .iter()
+            .flat_map(|e| self.local.vars.get(e))
+        {
             if let StackValType::LocalVar {
                 offset,
                 init_val: Some(init),
