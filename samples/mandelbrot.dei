@@ -3,14 +3,12 @@ static MAX_ITER: i32 = 100;
 static THRESHOLD: i32 = 30;
 
 sub mandel_iter(x: f32, y: f32, count: &i32) {
-    let i: i32 = 0, ox: f32, oy: f32, tx: f32, ty: f32;
-    ox = x;
-    oy = y;
-    while ((i < MAX_ITER) and (x*x + y*y <= 4.0)) {
-        tx = x;
-        ty = y;
-        x = tx*tx - ty*ty + ox;
-        y = 2.0*tx*ty + oy;
+    let i: i32 = 1, cx: f32 = 0.0, cy: f32 = 0.0, tx: f32, ty: f32;
+    while (i < MAX_ITER and cx*cx + cy*cy < 4.0) {
+        tx = cx;
+        ty = cy;
+        cx = tx*tx - ty*ty + x;
+        cy = 2.0*tx*ty + y;
         i = i + 1;
     }
     *count = i;
